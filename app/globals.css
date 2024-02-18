@@ -26,3 +26,8 @@ body {
 .bubble {
   border-radius: 13px 13px 13px 0px;
 }
+
+.error-message {
+  color: red;
+  /* other styles to make it visible */
+}

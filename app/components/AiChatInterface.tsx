@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, ReactNode } from "react";
 import styles from "../chatStyle.module.css";
 import Image from "next/image";
 import { useChatbot } from "../context/ChatbotContext";
@@ -13,6 +13,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import NotificationsOffIcon from "@mui/icons-material/NotificationsOff";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+
 import send from "../../public/send.png";
 import avatar from "../../public/avatar-g.png";
 import arrow from "../../public/arrow.png";
@@ -36,13 +37,16 @@ import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import CircularProgress from "@mui/material/CircularProgress";
+import SarahCard from "./sarahCard";
+import JimmyCard from "./Jimmycard";
 
 interface Message {
   id: number;
   text: string;
   sender: "user" | "ai";
-  type?: "user" | "ai" | "botName" | "transactionSummary";
+  type?: "user" | "ai" | "botName" | "transactionSummary" | "ai_fetching";
   imgUrl?: string;
+  name?: string;
   transactionDetails?: TransactionDetails; // Additional property for the transaction details
 }
 
@@ -104,18 +108,13 @@ const convertRateTypeToSeconds = (rateType: any) => {
 
 // A new interface for the transaction details
 interface TransactionDetails {
-  stopTime: ReactNode;
-  tokenAddress: ReactNode;
   transaction_name: string;
   receiver_wallet_address: string;
-  remark: string;
   token: string;
   enable_stream_rate: number;
   start_time: string;
   end_time: string;
-  number_of_time: number;
   token_amount_per_time: number;
-  time_interval: string;
 }
 interface Props {
   chatbotId?: string; // Make it optional
@@ -125,12 +124,19 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const messageContainerRef = useRef<HTMLDivElement>(null);
-  const [numberOfTimes, setNumberOfTimes] = useState(undefined);
-  const [amountPerTime, setAmountPerTime] = useState(undefined);
+  const [numberOfTimes, setNumberOfTimes] = useState<number | undefined>(
+    undefined
+  );
+  const [amountPerTime, setAmountPerTime] = useState<number | undefined>(
+    undefined
+  );
+
   const [interval, setInterval] = useState(1000);
   const [enableStreamRate, setEnableStreamRate] = useState(false);
   const [isTransactionLoading, setIsTransactionLoading] = useState(false);
   const textareaRef = useRef(null);
+  const [isFetchingData, setIsFetchingData] = useState(false);
+  const [fetchError, setFetchError] = useState("");
 
   // Assuming you have an environment variable for the contract address and Ethereum node URL
   const contractAddress = "0x638f4e36Dd45ec543670a185334C0b8fa6eDd0a9";
@@ -153,7 +159,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   const handleCancel = (id: number) => {
-    // Remove the message with the specific id and its preceding prompt
     setMessages((prevMessages) =>
       prevMessages.filter(
         (message) => message.id !== id && message.id !== id - 1
@@ -257,23 +262,28 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
     }
   };
 
-  // Function to handle the conversion and transaction sending
-  const handleTransaction = async () => {
+  const handleTransaction = async (messageId: number) => {
     setIsTransactionLoading(true);
-    const message = messages.find((m) => m.type === "transactionSummary");
+    console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
+    const message = messages.find((m) => m.id === messageId);
+
     if (!message || !message.transactionDetails) {
-      console.error("Invalid transaction message.");
+      console.error("Invalid transaction message for ID:", messageId);
+      setIsTransactionLoading(false);
       return;
     }
+    const {
+      token_amount_per_time,
+      receiver_wallet_address,
+      start_time,
+      end_time,
+    } = message.transactionDetails;
 
-    const { deposit, recipient, startTime, stopTime, interval } =
-      message.transactionDetails;
-
-    const startTimeStamp = Math.floor(new Date(startTime).getTime() / 1000);
-    const stopTimeStamp = Math.floor(new Date(stopTime).getTime() / 1000);
+    const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
+    const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
     const intervalInSeconds = convertRateTypeToSeconds(interval);
     const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
-    const depositAmount = ethers.parseUnits(deposit);
+    const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
 
     // Function to approve tokens
     const approveTokens = async (
@@ -319,7 +329,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       await approveTokens(tokenContract, depositAmount);
 
       const tx = await Contract.createStream(
-        recipient,
+        receiver_wallet_address,
         depositAmount,
         coinAddress,
         startTimeStamp,
@@ -344,6 +354,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
   const handleSend = async () => {
     if (input.trim()) {
+      setIsFetchingData(true); // Set fetching data state to true when sending message
+      setFetchError("");
       // Add the new user message to the chat
       const newUserMessage = {
         id: messages.length + 1,
@@ -352,33 +364,46 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         type: "user",
       };
       setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-
+      // Clear the input
+      setInput(""); // Set input to an empty string
       // Send the user input to the bot's API and handle the response
       await sendMessageToBot(input);
+      setIsFetchingData(false);
 
-      // Clear the input after sending a message
-      setInput("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "inherit";
-        textareaRef.current.style.height = "54px";
+        textareaRef.current.style.height = "34px";
       }
     }
   };
+
+  interface BotEndpoints {
+    [key: string]: string;
+  }
 
   const sendMessageToBot = async (input: any) => {
     const activeBot = chatbots.find((bot) => bot.id === chatbotId);
     if (!activeBot) return;
 
     let endpoint;
+    let botImageUrl;
+    let AIbotName;
+
     switch (activeBot.id) {
       case "bot1":
         endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
+        botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
+        AIbotName = activeBot.name;
         break;
       case "bot2":
         endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
+        botImageUrl = activeBot.imgurl;
+        AIbotName = activeBot.name;
         break;
       case "bot3":
         endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sam";
+        botImageUrl = activeBot.imgurl;
+        AIbotName = activeBot.name; // Set bot's image URL for Sam
         break;
       default:
         console.error("Invalid bot ID");
@@ -404,7 +429,9 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
             text: "",
             sender: "ai",
             type: "transactionSummary",
-            transactionDetails: apiResponse, // Directly assigning the parsed object
+            imgUrl: botImageUrl,
+            name: AIbotName,
+            transactionDetails: apiResponse,
           };
           setMessages((prevMessages) => [...prevMessages, newMessage]);
         } catch {
@@ -414,6 +441,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
             text: data.result,
             sender: "ai",
             type: "ai",
+            imgUrl: botImageUrl,
           };
           setMessages((prevMessages) => [...prevMessages, newMessage]);
         }
@@ -423,6 +451,16 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
     } catch (error) {
       console.error("Error fetching data:", error);
     }
+  };
+
+  const mockSubscriptionDetails = {
+    sample: "Subscription Sample Pay in Stream",
+    networkToken: "Aptos To APT",
+    sender: "0x7ACD6cder...E4cE",
+    receiver: "0x7ACD6cder...E4cE",
+    receiverWalletAddress: "0x7ACD6cder...E4cE",
+    tokenAmountPerTime: "1 APT",
+    interval: "per day",
   };
 
   return (
@@ -449,6 +487,18 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
               </div>
             </div>
 
+            {isFetchingData && (
+              <div className="mt-4">
+                <CircularProgress color="secondary" size={22} />
+                <span style={{ marginLeft: "10px", color: "#FFFFFF" }}>
+                  AI is processong your request...
+                </span>
+              </div>
+            )}
+            {fetchError && (
+              <div className="fetch-error-message">{fetchError}</div>
+            )}
+
             <div className="flex">
               <IconButton aria-label="notifications">
                 <NotificationsOffIcon sx={{ color: "#A3A3A3" }} />
@@ -474,214 +524,65 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         ref={messageContainerRef}
         className={`${styles.messageContainer} flex-1 p-4 space-y-2`}
       >
-        {messages.map((message) =>
-          message.type === "transactionSummary" &&
-          message.transactionDetails ? (
-            <div key={message.id} className="flex justify-end">
-              <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 my-2 bubble2 card-font">
-                <div className="flex justify-between mt-5 ">
-                  {/* Left column */}
-                  <div className="flex flex-col gap-y-3">
-                    <div className="text-base flex tracking-wider gap-x-2 text-[#A3A3A3] text-[13px]">
-                      <p className="text-[13px]">
-                        Transaction Name:{" "}
-                        <span className="text-white text-[13px]">
-                          {message.transactionDetails.transaction_name}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="text-base tracking-wider text-[#A3A3A3] text-[13px] flex gap-2">
-                      <p className="text-[13px]">Token: </p>
-                      <span className="text-white text-[13px]">
-                        {message.transactionDetails.token}
-                      </span>
-                    </div>
-                    <div className="text-[#A3A3A3]  tracking-wider flex items-center">
-                      <p className="text-[13px]">Time:</p>
-                      <span className="text-white ml-2 flex items-center text-[13px]">
-                        {message.transactionDetails.start_time}
-                        {/* Inline SVG for arrow. Adjust as needed. */}
-                        <Image
-                          src={arrow}
-                          alt="Arrow"
-                          width={14}
-                          height={11}
-                          className="mx-2"
-                        />
-                        {message.transactionDetails.end_time}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right column */}
-                  <div className="flex flex-col gap-y-3 tracking-wider">
-                    <div className="text-[#A3A3A3] text-[13px]">
-                      Receiver Wallet Address:
-                      <span className="text-white ml-1">
-                        {""}
-                        {shortenAddress(
-                          message.transactionDetails.receiver_wallet_address
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[#A3A3A3] text-[13px]">
-                        Amount:
-                      </span>
-                      <span className="text-[#F143E2] text-[13px] font-bold">
-                        {message.transactionDetails.token_amount_per_time}
-                      </span>
-                      <span className="text-[#A3A3A3] text-[13px]">
-                        Max:{" "}
-                        <span className="text-[#F143E2] text-[13px] font-bold">
-                          {message.transactionDetails.token_amount_per_time}
-                        </span>
-                      </span>
-                      <span className="text-[##A3A3A3] text-[13px] font-bold">
-                        ${message.transactionDetails.tokenAddress}{" "}
-                        {/* Assuming you have maxAmount in your details */}
-                      </span>
-                    </div>
-                  </div>
+        {messages.map((message) => {
+          if (
+            message.type === "transactionSummary" &&
+            message.transactionDetails
+          ) {
+            // Render JimmyCard for bot2 and SarahCard for bot1
+            if (activeBot?.id === "bot2") {
+              return (
+                <div className=" flex justify-end">
+                  <JimmyCard subscriptionDetails={mockSubscriptionDetails} />
                 </div>
-                <Grid container spacing={3} sx={{ padding: 1 }}>
-                  <Grid item sm={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={enableStreamRate}
-                          onChange={handleSwitchChange}
-                          name="gilad"
-                          sx={{
-                            "& .MuiSwitch-switchBase.Mui-checked": {
-                              color: "#ffff", // Thumb color when checked
-                              "&:hover": {
-                                backgroundColor: "rgba(171, 84, 219, 0.08)", // Ripple color when hovered
-                              },
-                            },
-                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
-                              {
-                                backgroundColor: "#F143E2", // Track color when checked
-                              },
-                          }}
-                        />
-                      }
-                      label="Enable Stream Rate"
-                      sx={{
-                        "& .MuiTypography-body1": {
-                          fontSize: "13px",
-                          fontWeight: "600",
-                          letterSpacing: "1.5px",
-                        },
+              );
+            } else if (activeBot?.id === "bot1") {
+              return (
+                <div className=" flex justify-end">
+                  <div className="flex gap-2">
+                    <SarahCard
+                      id={message.id}
+                      key={message.id}
+                      transactionInfo={{
+                        transaction_name:
+                          message.transactionDetails.transaction_name,
+                        token: message.transactionDetails.token,
+                        start_time: message.transactionDetails.start_time,
+                        end_time: message.transactionDetails.end_time,
+                        receiver_wallet_address:
+                          message.transactionDetails.receiver_wallet_address,
+                        token_amount_per_time:
+                          message.transactionDetails.token_amount_per_time,
                       }}
+                      enableStreamRate={enableStreamRate}
+                      numberOfTimes={numberOfTimes}
+                      amountPerTime={amountPerTime}
+                      interval={interval}
+                      handleSwitchChange={handleSwitchChange}
+                      handleCancel={handleCancel}
+                      onConfirm={() => handleTransaction(message.id)}
+                      intervals={intervals}
+                      setNumberOfTimes={setNumberOfTimes}
+                      setAmountPerTime={setAmountPerTime}
+                      setInterval={setInterval}
+                      generateOptions={generateOptions}
                     />
-                  </Grid>
-                </Grid>
-                {enableStreamRate && (
-                  <Grid container spacing={3} sx={{ padding: 1 }}>
-                    <Grid item sm={4}>
-                      <InputLabel
-                        sx={{ color: "#A3A3A3", fontSize: "16px" }}
-                        shrink
-                      >
-                        No.of Time
-                      </InputLabel>
-                      <input
-                        type="text"
-                        value={numberOfTimes}
-                        onChange={(e: any) => setNumberOfTimes(e.target.value)}
-                        style={{
-                          backgroundColor: "#313138",
-                          marginBottom: "0",
-                          outline: "none",
-                        }}
-                        className="w-full bg-blue-200 text-sm rounded mb-4 p-2 input-field"
-                        placeholder="E.g. 4"
+                    {message.imgUrl && (
+                      <img
+                        src={message.imgUrl}
+                        alt="Chatbot"
+                        className="ml-2 rounded-full w-[30px] h-[30px]"
                       />
-                    </Grid>
-                    <Grid item sm={4}>
-                      <InputLabel
-                        sx={{ color: "#A3A3A3", fontSize: "16px" }}
-                        shrink
-                      >
-                        Token Amount
-                      </InputLabel>
-                      <input
-                        type="text"
-                        value={amountPerTime}
-                        onChange={(e: any) => setAmountPerTime(e.target.value)}
-                        style={{
-                          backgroundColor: "#313138",
-                          marginBottom: "0",
-                          outline: "none",
-                        }}
-                        className="w-full bg-blue-200 text-sm rounded mb-4 p-2 input-field"
-                        placeholder="E.g. 4"
-                      />
-                    </Grid>
-                    <Grid item sm={4}>
-                      <InputLabel
-                        sx={{ color: "#A3A3A3", fontSize: "16px" }}
-                        shrink
-                      >
-                        Time interval
-                      </InputLabel>
-                      <Select
-                        value={interval}
-                        onChange={(e: any) => setInterval(e.target.value)}
-                        sx={{
-                          width: "100%",
-                          backgroundColor: "#313138",
-                          color: "white",
-                          height: "35px",
-                          fontSize: "0.875rem",
-                          "&.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline":
-                            {
-                              border: 0,
-                            },
-                          "&.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
-                            {
-                              border: 0,
-                            },
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "transparent", // Removes the border by default
-                          },
-                        }}
-                        disableUnderline
-                        MenuProps={{
-                          style: {
-                            maxHeight: 400,
-                          },
-                        }}
-                      >
-                        {generateOptions(intervals, "value", "label")}
-                      </Select>
-                    </Grid>
-                  </Grid>
-                )}
-
-                <div className="flex items-center justify-center mt-4 space-x-4">
-                  <button
-                    onClick={() => handleCancel(message.id)}
-                    className="bg-[#313138]  w-[99px] h-[32px] text-white text-xs p-2 rounded-lg hover:bg-[#4A4A4A]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleTransaction}
-                    className="bg-[#AB54DB] text-white text-xs p-2 w-[99px] h-[32px] rounded-lg hover:bg-[#9333EA] flex items-center justify-center"
-                    disabled={isTransactionLoading}
-                  >
-                    {isTransactionLoading ? (
-                      <CircularProgress size={20} style={{ color: "white" }} />
-                    ) : (
-                      "Confirm"
                     )}
-                  </button>
+
+                    {message.name && <p>{message.name}</p>}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : (
+              );
+            }
+          }
+
+          return (
             <div
               key={message.id}
               className={`flex ${
@@ -697,9 +598,9 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                   <span
                     className={`inline-block px-4 py-2 ${
                       message.sender === "ai"
-                        ? "bg-[#464255] py-3 text-white bubble2"
-                        : "bg-[#17161E] py-3 text-white bubble"
-                    } `}
+                        ? "bg-[#464255] py-3 my-3 text-white bubble2"
+                        : "bg-[#17161E] py-3 my-3 text-white bubble"
+                    }`}
                   >
                     {message.text}
                   </span>
@@ -713,8 +614,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                 </div>
               )}
             </div>
-          )
-        )}
+          );
+        })}
       </div>
 
       <div className="flex flex-col my-4 relative rounded-[13px] border border-[#3B3741]">
@@ -722,12 +623,12 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
           ref={textareaRef}
           value={input}
           onChange={handleTextareaChange}
-          className="w-full pl-4 my-5 bg-transparent text-white placeholder-gray-500 focus:outline-none rounded-l-[13px] resize-none overflow-hidden"
+          className="w-full pl-4 bg-transparent text-white placeholder-gray-500 focus:outline-none rounded-l-[13px] resize-none overflow-hidden"
           placeholder="Write your message here..."
           onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           style={{
-            minHeight: "10px", // Start with a minHeight of 54px
-            paddingRight: "160px",
+            minHeight: "10px",
+            paddingRight: "130px",
             boxSizing: "border-box",
           }}
         />
