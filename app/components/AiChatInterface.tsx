@@ -44,10 +44,11 @@ interface Message {
   id: number;
   text: string;
   sender: "user" | "ai";
-  type?: "user" | "ai" | "botName" | "transactionSummary" | "ai_fetching";
+  type?: "user" | "ai" | "botName" | "transactionSummary" | "ai_fetching" | "";
   imgUrl?: string;
   name?: string;
   transactionDetails?: TransactionDetails; // Additional property for the transaction details
+  jsxElement?: React.ReactNode;
 }
 
 interface Window {
@@ -231,23 +232,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
   const handleTextareaChange = (event: any) => {
     setInput(event.target.value);
-    adjustTextareaHeight();
   };
 
-  const adjustTextareaHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "inherit"; // Reset the height to get the correct scrollHeight
-      textareaRef.current.style.height = `${Math.max(
-        textareaRef.current.scrollHeight,
-        40
-      )}px`; // Set the new height
-    }
-  };
-
-  // Convert the deposit to 18 decimal places
-
-  // Function to handle the conversion and transaction sending
-  // Declare Ethereum instances outside the function
   const provider = new ethers.BrowserProvider(window.ethereum);
   let signer: any;
   let contract: ethers.Contract;
@@ -342,6 +328,32 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       await tx.wait();
       console.log("Stream created successfully");
       setIsTransactionLoading(false);
+
+      // After successful transaction, construct the response message with transaction hash and link
+      const transactionHash = tx.hash;
+      const bscScanUrl = `https://testnet.bscscan.com/tx/${transactionHash}`;
+
+      const responseMessage: Message = {
+        id: Date.now(),
+        text: `Transaction successful! Here's the transaction hash: ${transactionHash}. You can view it on Binance Smart Chain Testnet scan.`,
+        sender: "ai",
+        type: "ai",
+        jsxElement: (
+          <>
+            Transaction successful! Here's the transaction hash:{" "}
+            <a
+              href={bscScanUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#AB54DB" }}
+            >
+              {transactionHash}
+            </a>
+            . You can view it on Binance Smart Chain Testnet scan.
+          </>
+        ),
+      };
+      setMessages((prevMessages) => [...prevMessages, responseMessage]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
@@ -489,9 +501,13 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
             {isFetchingData && (
               <div className="mt-4">
-                <CircularProgress color="secondary" size={22} />
-                <span style={{ marginLeft: "10px", color: "#FFFFFF" }}>
-                  AI is processong your request...
+                <CircularProgress
+                  color="secondary"
+                  size={22}
+                  sx={{ marginTop: "3px" }}
+                />
+                <span className=" tracking-wider mx-2 mb-2">
+                  AI is diligently working on your request...
                 </span>
               </div>
             )}
@@ -532,13 +548,13 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
             // Render JimmyCard for bot2 and SarahCard for bot1
             if (activeBot?.id === "bot2") {
               return (
-                <div className=" flex justify-end">
+                <div className=" flex justify-end my-4">
                   <JimmyCard subscriptionDetails={mockSubscriptionDetails} />
                 </div>
               );
             } else if (activeBot?.id === "bot1") {
               return (
-                <div className=" flex justify-end">
+                <div className=" flex justify-end my-4">
                   <div className="flex gap-2">
                     <SarahCard
                       id={message.id}
@@ -604,6 +620,9 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                   >
                     {message.text}
                   </span>
+                  {/* Render the clickable link if the message contains a transaction hash */}
+
+                  {/* Render the AI bot's image if available */}
                   {message.imgUrl && (
                     <img
                       src={message.imgUrl}
@@ -611,6 +630,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                       className="ml-2 rounded-full w-[30px] h-[30px]"
                     />
                   )}
+                  {/* Render the AI bot's name if available */}
+                  {message.name && <p>{message.name}</p>}
                 </div>
               )}
             </div>
@@ -620,14 +641,12 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
       <div className="flex flex-col my-4 relative rounded-[13px] border border-[#3B3741]">
         <textarea
-          ref={textareaRef}
           value={input}
           onChange={handleTextareaChange}
-          className="w-full pl-4 bg-transparent text-white placeholder-gray-500 focus:outline-none rounded-l-[13px] resize-none overflow-hidden"
+          className="w-full pl-4 h-[60px] py-5 bg-transparent text-white placeholder-gray-500 focus:outline-none rounded-l-[13px] resize-none overflow-hidden"
           placeholder="Write your message here..."
           onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           style={{
-            minHeight: "10px",
             paddingRight: "130px",
             boxSizing: "border-box",
           }}
@@ -635,7 +654,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
         <button
           onClick={handleSend}
-          className="absolute inset-y-0 right-5 mt-2 bg-[#AB54DB] w-100 h-[40px] text-[12px] hover:opacity-[0.8] text-white py-2 px-4 rounded-[13px] flex items-center justify-center"
+          className="absolute inset-y-0 right-5 my-3 bg-[#AB54DB] w-100 h-[40px] text-[12px] hover:opacity-[0.8] text-white py-2 px-4 rounded-[13px] flex items-center justify-center"
         >
           <Image src={send} alt="send" />
         </button>

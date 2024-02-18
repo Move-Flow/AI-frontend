@@ -81,7 +81,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
 
   // Card JSX
   return (
-    <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 my-2 bubble2 card-font">
+    <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 bubble2 card-font my-4">
       <div className="flex justify-between mt-5 ">
         {/* Left column */}
         <div className="flex flex-col gap-y-3">
