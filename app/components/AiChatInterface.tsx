@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useChatbot } from "../context/ChatbotContext";
 import Abi from "../contractABI/ABI.json";
 import Approve from "../contractABI/approve.json";
+import subscriptionAbi from "../contractABI/subscriptionABI.json";
 import { ethers } from "ethers";
 
 import HomeIcon from "@mui/icons-material/Home";
@@ -39,16 +40,36 @@ import Switch from "@mui/material/Switch";
 import CircularProgress from "@mui/material/CircularProgress";
 import SarahCard from "./sarahCard";
 import JimmyCard from "./Jimmycard";
+import { TransactionInfo, mockTransactions } from "../mockTransaction";
+import Link from "next/link";
+
+export interface JimmySubscriptionDetails {
+  transaction_name: string;
+  network: string;
+  token_amount_per_time: number;
+  sender: string;
+  interval: string;
+  receiver: string;
+  token: string;
+  start_time: string;
+  end_time: string;
+}
 
 interface Message {
   id: number;
   text: string;
   sender: "user" | "ai";
-  type?: "user" | "ai" | "botName" | "transactionSummary" | "ai_fetching" | "";
+  type:
+    | "user"
+    | "ai"
+    | "botName"
+    | "transactionSummary"
+    | "ai_fetching"
+    | "transactionLink";
   imgUrl?: string;
   name?: string;
-  transactionDetails?: TransactionDetails; // Additional property for the transaction details
-  jsxElement?: React.ReactNode;
+  transactionDetails?: TransactionDetails; // Existing transaction details
+  JimmySubscriptionDetails?: JimmySubscriptionDetails;
 }
 
 interface Window {
@@ -108,13 +129,16 @@ const convertRateTypeToSeconds = (rateType: any) => {
 };
 
 // A new interface for the transaction details
-interface TransactionDetails {
+export interface TransactionDetails {
   transaction_name: string;
   receiver_wallet_address: string;
   token: string;
-  enable_stream_rate: number;
+  network: string;
+  receiver: string;
   start_time: string;
   end_time: string;
+  sender: "string";
+  interval: string;
   token_amount_per_time: number;
 }
 interface Props {
@@ -138,9 +162,14 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   const textareaRef = useRef(null);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState("");
+  const [transactionLink, setTransactionLink] = useState<string | null>(null);
 
   // Assuming you have an environment variable for the contract address and Ethereum node URL
   const contractAddress = "0x638f4e36Dd45ec543670a185334C0b8fa6eDd0a9";
+  const SubscriptionContractAddress =
+    "0x4027c067473066FE9D9588290554c16e016f34A7";
+
+  const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
 
   // Function to shorten the wallet address
   const shortenAddress = (address: string) => {
@@ -291,7 +320,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
       const coinAddress = "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368";
       const tokenContract = new ethers.Contract(coinAddress, Approve, signer);
-      const Contract = new ethers.Contract(coinAddress, Abi, signer);
+      const Contract = new ethers.Contract(contractAddress, Abi, signer);
       const address = await signer.getAddress();
       console.log("User address:", address);
       const balance = await provider.getBalance(address);
@@ -329,31 +358,130 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       console.log("Stream created successfully");
       setIsTransactionLoading(false);
 
-      // After successful transaction, construct the response message with transaction hash and link
       const transactionHash = tx.hash;
       const bscScanUrl = `https://testnet.bscscan.com/tx/${transactionHash}`;
 
-      const responseMessage: Message = {
+      // Create a special message type for transaction links
+      const transactionLinkMessage: Message = {
         id: Date.now(),
-        text: `Transaction successful! Here's the transaction hash: ${transactionHash}. You can view it on Binance Smart Chain Testnet scan.`,
+        text: "Stream created successfully!", // Store the URL directly in the text or create a new property
         sender: "ai",
-        type: "ai",
-        jsxElement: (
-          <>
-            Transaction successful! Here's the transaction hash:{" "}
-            <a
-              href={bscScanUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#AB54DB" }}
-            >
-              {transactionHash}
-            </a>
-            . You can view it on Binance Smart Chain Testnet scan.
-          </>
-        ),
+        type: "transactionLink", // Custom type for transaction links
       };
-      setMessages((prevMessages) => [...prevMessages, responseMessage]);
+
+      // Add the transaction link message to your messages state
+      setMessages((prevMessages) => [...prevMessages, transactionLinkMessage]);
+    } catch (error: any) {
+      console.error("Transaction error:", error);
+      if (error.code === 4001) {
+        // User rejected the transaction
+        console.log("User rejected the transaction.");
+      }
+      setIsTransactionLoading(false);
+    }
+  };
+
+  const handleSubscription = async (messageId: number) => {
+    setIsTransactionLoading(true);
+    console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
+    const message = messages.find((m) => m.id === messageId);
+
+    if (!message || !message.transactionDetails) {
+      console.error("Invalid transaction message for ID:", messageId);
+      setIsTransactionLoading(false);
+      return;
+    }
+    const {
+      token_amount_per_time,
+      receiver_wallet_address,
+      start_time,
+      end_time,
+    } = message.transactionDetails;
+
+    const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
+    const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
+    const intervalInSeconds = convertRateTypeToSeconds(interval);
+    const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
+    const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
+
+    // Function to approve tokens
+    const approveTokens = async (
+      tokenContract: ethers.Contract,
+      deposit: bigint
+    ) => {
+      const approvalTx = await tokenContract.approve(
+        SubscriptionContractAddress,
+        deposit
+      );
+      await approvalTx.wait();
+      console.log("Tokens approved");
+    };
+
+    console.log("stop time:", stopTimeStamp);
+    console.log("deposit", depositAmount);
+    console.log("end time", startTimeStamp);
+    console.log("intervals", intervalInSeconds);
+
+    try {
+      await initializeEthereum();
+
+      const coinAddress = "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368";
+      const tokenContract = new ethers.Contract(coinAddress, Approve, signer);
+      const Contract = new ethers.Contract(
+        SubscriptionContractAddress,
+        Abi,
+        signer
+      );
+      const address = await signer.getAddress();
+      console.log("User address:", address);
+      const balance = await provider.getBalance(address);
+      console.log("User balance:", ethers.formatEther(balance) + " ETH");
+
+      // Convert balance to a comparable number format
+      const balanceInEther = parseFloat(ethers.formatEther(balance));
+
+      // Convert depositAmount back to a number for comparison
+      const depositAmountInEther = parseFloat(
+        ethers.formatEther(depositAmount)
+      );
+
+      // Check if the user has enough balance to cover the deposit amount
+      if (balanceInEther < depositAmountInEther) {
+        console.error("Insufficient balance for the transaction.");
+        alert("You have insufficient balance to complete this transaction.");
+        setIsTransactionLoading(false);
+        return;
+      }
+      await approveTokens(tokenContract, depositAmount);
+
+      const tx = await Contract.createStream(
+        receiver_wallet_address,
+        depositAmount,
+        coinAddress,
+        startTimeStamp,
+        stopTimeStamp,
+        intervalInSeconds,
+        { gasLimit: 500000 }
+      );
+
+      console.log("Transaction sent:", tx.hash);
+      await tx.wait();
+      console.log("Stream created successfully");
+      setIsTransactionLoading(false);
+
+      const transactionHash = tx.hash;
+      // const bscScanUrl = `https://testnet.bscscan.com/tx/${transactionHash}`;
+
+      // Create a special message type for transaction links
+      const transactionLinkMessage: Message = {
+        id: Date.now(),
+        text: "Subscription created successfully!", // Store the URL directly in the text or create a new property
+        sender: "ai",
+        type: "transactionLink", // Custom type for transaction links
+      };
+
+      // Add the transaction link message to your messages state
+      setMessages((prevMessages) => [...prevMessages, transactionLinkMessage]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
@@ -379,7 +507,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       // Clear the input
       setInput(""); // Set input to an empty string
       // Send the user input to the bot's API and handle the response
-      await sendMessageToBot(input);
+      await sendMessageToSarahBot(input);
       setIsFetchingData(false);
 
       if (textareaRef.current) {
@@ -389,38 +517,16 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
     }
   };
 
-  interface BotEndpoints {
-    [key: string]: string;
-  }
-
-  const sendMessageToBot = async (input: any) => {
-    const activeBot = chatbots.find((bot) => bot.id === chatbotId);
-    if (!activeBot) return;
-
-    let endpoint;
-    let botImageUrl;
-    let AIbotName;
-
-    switch (activeBot.id) {
-      case "bot1":
-        endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
-        botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
-        AIbotName = activeBot.name;
-        break;
-      case "bot2":
-        endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
-        botImageUrl = activeBot.imgurl;
-        AIbotName = activeBot.name;
-        break;
-      case "bot3":
-        endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sam";
-        botImageUrl = activeBot.imgurl;
-        AIbotName = activeBot.name; // Set bot's image URL for Sam
-        break;
-      default:
-        console.error("Invalid bot ID");
-        return;
+  const sendMessageToSarahBot = async (input: any) => {
+    // Ensure this function is specifically for Sarah bot only
+    if (activeBot?.id !== "bot1") {
+      console.error("This function is only for Sarah bot");
+      return;
     }
+
+    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
+    const botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
+    const AIbotName = activeBot.name;
 
     try {
       const response = await fetch(endpoint, {
@@ -436,7 +542,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         try {
           apiResponse = JSON.parse(data.result);
           // Assuming the response is a transaction detail object
-          const newMessage: Message = {
+          const newMessage = {
             id: Date.now(),
             text: "",
             sender: "ai",
@@ -448,7 +554,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
         } catch {
           // Handle plain text response
-          const newMessage: Message = {
+          const newMessage = {
             id: Date.now(),
             text: data.result,
             sender: "ai",
@@ -458,21 +564,11 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
         }
       } else {
-        console.error("Failed to fetch data from the bot's API");
+        console.error("Failed to fetch data from Sarah's API");
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching data from Sarah's API:", error);
     }
-  };
-
-  const mockSubscriptionDetails = {
-    sample: "Subscription Sample Pay in Stream",
-    networkToken: "Aptos To APT",
-    sender: "0x7ACD6cder...E4cE",
-    receiver: "0x7ACD6cder...E4cE",
-    receiverWalletAddress: "0x7ACD6cder...E4cE",
-    tokenAmountPerTime: "1 APT",
-    interval: "per day",
   };
 
   return (
@@ -541,18 +637,22 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         className={`${styles.messageContainer} flex-1 p-4 space-y-2`}
       >
         {messages.map((message) => {
-          if (
-            message.type === "transactionSummary" &&
-            message.transactionDetails
-          ) {
-            // Render JimmyCard for bot2 and SarahCard for bot1
-            if (activeBot?.id === "bot2") {
+          if (message.type === "transactionSummary") {
+            // Check for Jimmy's bot transaction details and render JimmyCard
+            if (activeBot?.id === "bot2" && message.transactionDetails) {
               return (
-                <div className=" flex justify-end my-4">
-                  <JimmyCard subscriptionDetails={mockSubscriptionDetails} />
+                <div className="flex justify-end my-4">
+                  <JimmyCard
+                    onConfirm={() => handleSubscription(message.id)}
+                    subscriptionDetails={message.transactionDetails}
+                  />
+                  botImage={message.imgUrl}
+                  botName={message.name}
                 </div>
               );
-            } else if (activeBot?.id === "bot1") {
+            }
+            // Check for Sarah's bot transaction details and render SarahCard
+            else if (activeBot?.id === "bot1" && message.transactionDetails) {
               return (
                 <div className=" flex justify-end my-4">
                   <div className="flex gap-2">

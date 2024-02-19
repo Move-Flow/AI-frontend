@@ -1,6 +1,6 @@
 // SarahCard.tsx
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
   IconButton,
@@ -50,6 +50,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
   enableStreamRate,
   numberOfTimes,
   amountPerTime,
+  id,
   interval,
   handleSwitchChange,
   handleCancel,
@@ -79,6 +80,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
     setLocalIsTransactionLoading(false);
   };
 
+  
   // Card JSX
   return (
     <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 bubble2 card-font my-4">
@@ -246,7 +248,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
 
       <div className="flex items-center justify-center mt-4 space-x-4">
         <button
-          onClick={() => handleCancel(message.id)}
+          onClick={() => handleCancel(id)}
           className="bg-[#313138]  w-[99px] h-[32px] text-white text-xs p-2 rounded-lg hover:bg-[#4A4A4A]"
         >
           Cancel
