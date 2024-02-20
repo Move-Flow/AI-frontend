@@ -53,7 +53,7 @@ function AibotInterface() {
   };
 
   return (
-    <div className="bg-[#24232C] w-[409px] rounded-[18px] h-[748px] overflow-y-auto">
+    <div className="bg-[#24232C] w-[409px] rounded-[18px] lg:h-[670px] xl:h-[90vh] overflow-y-auto">
       <ul>
         {chatbots.map((bot) => (
           <li key={bot.id} className="mb-4">

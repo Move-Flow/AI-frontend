@@ -20,7 +20,7 @@ export default function RootLayout({ children }) {
     const navigate = async () => {
       if (typeof window !== "undefined" && window.location.pathname === "/") {
         try {
-          await router.push("/Generalbot");
+          await router.push("/bot1");
         } catch (error) {
           console.error("Failed to navigate:", error);
         }

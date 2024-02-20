@@ -133,7 +133,7 @@ export interface TransactionDetails {
   receiver_wallet_address: string;
   start_time: string;
   end_time: string;
-  Token: string;
+  token: string;
   interval: string;
   token_amount_per_time: number;
 }
@@ -162,15 +162,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   const contractAddress = "0x638f4e36Dd45ec543670a185334C0b8fa6eDd0a9";
   const SubscriptionContractAddress =
     "0x4027c067473066FE9D9588290554c16e016f34A7";
-
-  const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
-
-  // Function to shorten the wallet address
-  const shortenAddress = (address: string) => {
-    const start = address.slice(0, 5); // Take the first 6 characters
-    const end = address.slice(-4); // Take the last 4 characters
-    return `${start}...${end}`; // Combine them with an ellipsis
-  };
 
   const handleSwitchChange = () => {
     if (enableStreamRate) {
@@ -670,7 +661,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   return (
-    <div className="w-full h-[748px] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px] flex flex-col">
+    <div className="w-full lg:h-[670px] xl:h-[90vh] 2xl:h-[100vh] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px] my-2 flex flex-col">
       {activeBot && (
         <>
           <div className="flex justify-between">
@@ -735,16 +726,16 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         className={`${styles.messageContainer} flex-1 p-4 space-y-2`}
       >
         {messages.map((message) => {
-          // Render 'transactionSummary' message type differently
           if (message.type === "transactionSummary") {
+            // Render 'transactionSummary' message type
             return (
               <div className="flex flex-col justify-end my-4" key={message.id}>
                 {/* Render the transaction summary text as an AI response */}
-                <div className="flex flex-col justify-end items-end flex-wrap">
+                <div className="flex flex-col justify-end items-end">
                   <span className="text-[#A3A3A3] text-sm mr-11 capitalize">
                     {message.name}
                   </span>
-                  <div className="flex">
+                  <div className="flex justify-end">
                     <span className="inline-block px-4 py-2 bg-[#464255] my-3 text-white bubble2">
                       {message.text}
                     </span>
@@ -756,7 +747,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                   </div>
                 </div>
 
-                {/* Conditionally render the JimmyCard component if it's Jimmy's bot */}
+                {/* Check which bot's transaction details to render */}
                 {activeBot?.id === "bot2" &&
                   message.JimmySubscriptionDetails && (
                     <div className="flex justify-end">
@@ -766,11 +757,40 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                       />
                     </div>
                   )}
+                {activeBot?.id === "bot1" && message.transactionDetails && (
+                  <div className="flex justify-end">
+                    <SarahCard
+                      id={message.id}
+                      key={message.id}
+                      transactionInfo={{
+                        transaction_name:
+                          message.transactionDetails.transaction_name,
+                        start_time: message.transactionDetails.start_time,
+                        end_time: message.transactionDetails.end_time,
+                        token: message.transactionDetails.token,
+                        receiver_wallet_address:
+                          message.transactionDetails.receiver_wallet_address,
+                        token_amount_per_time:
+                          message.transactionDetails.token_amount_per_time,
+                      }}
+                      enableStreamRate={enableStreamRate}
+                      numberOfTimes={numberOfTimes}
+                      amountPerTime={amountPerTime}
+                      interval={interval}
+                      handleSwitchChange={handleSwitchChange}
+                      handleCancel={handleCancel}
+                      onConfirm={() => handleTransaction(message.id)}
+                      intervals={intervals}
+                      setNumberOfTimes={setNumberOfTimes}
+                      setAmountPerTime={setAmountPerTime}
+                      setInterval={setInterval}
+                      generateOptions={generateOptions}
+                    />
+                  </div>
+                )}
               </div>
             );
           }
-
-          // Render other message types normally
           return (
             <div
               key={message.id}
