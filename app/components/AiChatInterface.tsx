@@ -661,7 +661,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   return (
-    <div className="w-full lg:h-[670px] xl:h-[90vh] 2xl:h-[100vh] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px] my-2 flex flex-col">
+    <div className="w-full lg:h-[670px] xl:h-[90vh] 2xl:h-[750px] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px]  flex flex-col">
       {activeBot && (
         <>
           <div className="flex justify-between">
