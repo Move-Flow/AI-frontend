@@ -45,16 +45,15 @@ import Link from "next/link";
 
 export interface JimmySubscriptionDetails {
   transaction_name: string;
-  network: string;
-  token_amount_per_time: number;
-  sender: string;
-  interval: string;
-  receiver: string;
-  token: string;
+  Network: string;
+  Token: string;
+  Sender: string;
+  Receiver: string;
   start_time: string;
   end_time: string;
+  time_interval: string;
+  token_amount_per_time: number;
 }
-
 interface Message {
   id: number;
   text: string;
@@ -132,12 +131,9 @@ const convertRateTypeToSeconds = (rateType: any) => {
 export interface TransactionDetails {
   transaction_name: string;
   receiver_wallet_address: string;
-  token: string;
-  network: string;
-  receiver: string;
   start_time: string;
   end_time: string;
-  sender: "string";
+  Token: string;
   interval: string;
   token_amount_per_time: number;
 }
@@ -162,8 +158,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   const textareaRef = useRef(null);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState("");
-  const [transactionLink, setTransactionLink] = useState<string | null>(null);
-
   // Assuming you have an environment variable for the contract address and Ethereum node URL
   const contractAddress = "0x638f4e36Dd45ec543670a185334C0b8fa6eDd0a9";
   const SubscriptionContractAddress =
@@ -386,22 +380,38 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
     console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
     const message = messages.find((m) => m.id === messageId);
 
-    if (!message || !message.transactionDetails) {
+    if (!message || !message.JimmySubscriptionDetails) {
       console.error("Invalid transaction message for ID:", messageId);
       setIsTransactionLoading(false);
       return;
     }
+    if (!message.JimmySubscriptionDetails) {
+      console.error("JimmySubscriptionDetails is undefined.");
+      return;
+    }
+
+    // Now TypeScript knows JimmySubscriptionDetails is not undefined
     const {
-      token_amount_per_time,
-      receiver_wallet_address,
       start_time,
       end_time,
-    } = message.transactionDetails;
+      time_interval,
+      Receiver: receiverWithBrackets,
+      token_amount_per_time,
+    } = message.JimmySubscriptionDetails;
 
+    // Extract just the wallet address from the Receiver string
+    const receiverAddressMatch =
+      receiverWithBrackets.match(/0x[a-fA-F0-9]{40}/);
+    if (!receiverAddressMatch) {
+      console.error("Invalid Receiver wallet address.");
+      setIsTransactionLoading(false);
+      return;
+    }
+    const Receiver = receiverAddressMatch[0]; // Use the first match as the receiver address
+    console.log("Receiver address:", Receiver);
     const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
     const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
-    const intervalInSeconds = convertRateTypeToSeconds(interval);
-    const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
+    const intervalInSeconds = convertRateTypeToSeconds(time_interval);
     const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
 
     // Function to approve tokens
@@ -455,7 +465,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       await approveTokens(tokenContract, depositAmount);
 
       const tx = await Contract.createStream(
-        receiver_wallet_address,
+        Receiver,
         depositAmount,
         coinAddress,
         startTimeStamp,
@@ -466,7 +476,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
       console.log("Transaction sent:", tx.hash);
       await tx.wait();
-      console.log("Stream created successfully");
+      console.log("Subscription created successfully");
       setIsTransactionLoading(false);
 
       const transactionHash = tx.hash;
@@ -507,13 +517,101 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       // Clear the input
       setInput(""); // Set input to an empty string
       // Send the user input to the bot's API and handle the response
-      await sendMessageToSarahBot(input);
+      // Check which bot is active and send the message to the appropriate bot
+      if (activeBot?.id === "bot1") {
+        await sendMessageToSarahBot(input); // For Sarah's bot
+      } else if (activeBot?.id === "bot2") {
+        await sendMessageToJimmyBot(input); // For Jimmy's bot
+        // You can add else if clauses here for other bots as needed
+      }
+
       setIsFetchingData(false);
 
       if (textareaRef.current) {
         textareaRef.current.style.height = "inherit";
         textareaRef.current.style.height = "34px";
       }
+    }
+  };
+
+  const parseJimmyApiResponse = (
+    apiResponse: string
+  ): { message: string; data?: any } | null => {
+    try {
+      // First, try to directly parse the entire response, assuming it's JSON
+      const data = JSON.parse(apiResponse);
+      return { message: "", data };
+    } catch {
+      // If direct parsing fails, look for embedded JSON
+      const jsonRegex = /{.*}/s;
+      const match = apiResponse.match(jsonRegex);
+      if (match) {
+        const jsonString = match[0];
+        try {
+          const data = JSON.parse(jsonString);
+          const message = apiResponse.replace(jsonString, "").trim();
+          return { message, data };
+        } catch (error) {
+          console.error(
+            "Error parsing embedded JSON from Jimmy's API response:",
+            error
+          );
+        }
+      }
+    }
+
+    // If no JSON found or parsing failed, return the original response as the message
+    console.error("No JSON found in Jimmy's API response");
+    return { message: apiResponse };
+  };
+
+  const sendMessageToJimmyBot = async (input: string) => {
+    if (activeBot?.id !== "bot2") {
+      console.error("This function is intended for Jimmy's bot.");
+      return;
+    }
+
+    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
+    const botImageUrl = activeBot.imgurl;
+    const AIbotName = activeBot.name;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msg: input }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API response:", data);
+
+      const parsedResult = parseJimmyApiResponse(data.result);
+      console.log("Parsed API response:", parsedResult);
+
+      if (!parsedResult) {
+        console.log("Failed to parse API response for Jimmy's bot.");
+        return;
+      }
+
+      const { message, data: jsonData } = parsedResult;
+      const messageType = jsonData ? "transactionSummary" : "ai";
+      const newMessage = {
+        id: Date.now(),
+        text: message || "Received a response from Jimmy's bot.",
+        sender: "ai",
+        type: messageType,
+        imgUrl: botImageUrl,
+        name: AIbotName,
+        ...(jsonData && { JimmySubscriptionDetails: jsonData }),
+      };
+
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+    } catch (error) {
+      console.error("Error fetching data from Jimmy's bot:", error);
     }
   };
 
@@ -637,67 +735,42 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         className={`${styles.messageContainer} flex-1 p-4 space-y-2`}
       >
         {messages.map((message) => {
+          // Render 'transactionSummary' message type differently
           if (message.type === "transactionSummary") {
-            // Check for Jimmy's bot transaction details and render JimmyCard
-            if (activeBot?.id === "bot2" && message.transactionDetails) {
-              return (
-                <div className="flex justify-end my-4">
-                  <JimmyCard
-                    onConfirm={() => handleSubscription(message.id)}
-                    subscriptionDetails={message.transactionDetails}
-                  />
-                  botImage={message.imgUrl}
-                  botName={message.name}
-                </div>
-              );
-            }
-            // Check for Sarah's bot transaction details and render SarahCard
-            else if (activeBot?.id === "bot1" && message.transactionDetails) {
-              return (
-                <div className=" flex justify-end my-4">
-                  <div className="flex gap-2">
-                    <SarahCard
-                      id={message.id}
-                      key={message.id}
-                      transactionInfo={{
-                        transaction_name:
-                          message.transactionDetails.transaction_name,
-                        token: message.transactionDetails.token,
-                        start_time: message.transactionDetails.start_time,
-                        end_time: message.transactionDetails.end_time,
-                        receiver_wallet_address:
-                          message.transactionDetails.receiver_wallet_address,
-                        token_amount_per_time:
-                          message.transactionDetails.token_amount_per_time,
-                      }}
-                      enableStreamRate={enableStreamRate}
-                      numberOfTimes={numberOfTimes}
-                      amountPerTime={amountPerTime}
-                      interval={interval}
-                      handleSwitchChange={handleSwitchChange}
-                      handleCancel={handleCancel}
-                      onConfirm={() => handleTransaction(message.id)}
-                      intervals={intervals}
-                      setNumberOfTimes={setNumberOfTimes}
-                      setAmountPerTime={setAmountPerTime}
-                      setInterval={setInterval}
-                      generateOptions={generateOptions}
+            return (
+              <div className="flex flex-col justify-end my-4" key={message.id}>
+                {/* Render the transaction summary text as an AI response */}
+                <div className="flex flex-col justify-end items-end flex-wrap">
+                  <span className="text-[#A3A3A3] text-sm mr-11 capitalize">
+                    {message.name}
+                  </span>
+                  <div className="flex">
+                    <span className="inline-block px-4 py-2 bg-[#464255] my-3 text-white bubble2">
+                      {message.text}
+                    </span>
+                    <img
+                      src={message.imgUrl}
+                      alt="Chatbot"
+                      className="ml-2 rounded-full w-[30px] h-[30px]"
                     />
-                    {message.imgUrl && (
-                      <img
-                        src={message.imgUrl}
-                        alt="Chatbot"
-                        className="ml-2 rounded-full w-[30px] h-[30px]"
-                      />
-                    )}
-
-                    {message.name && <p>{message.name}</p>}
                   </div>
                 </div>
-              );
-            }
+
+                {/* Conditionally render the JimmyCard component if it's Jimmy's bot */}
+                {activeBot?.id === "bot2" &&
+                  message.JimmySubscriptionDetails && (
+                    <div className="flex justify-end">
+                      <JimmyCard
+                        onConfirm={() => handleSubscription(message.id)}
+                        subscriptionDetails={message.JimmySubscriptionDetails}
+                      />
+                    </div>
+                  )}
+              </div>
+            );
           }
 
+          // Render other message types normally
           return (
             <div
               key={message.id}
@@ -705,11 +778,13 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                 message.sender === "ai" ? "justify-end" : "justify-start"
               }`}
             >
-              {message.type === "botName" ? (
-                <span className="inline-block px-4 pt-3 text-center text-white text-[12px] tracking-wider mr-[28px]">
-                  {message.text}
-                </span>
-              ) : (
+              <div className="flex flex-col items-end">
+                {/* Render the AI bot's name if available */}
+                {message.name && (
+                  <p className="text-[#A3A3A3] text-sm mr-11 ">
+                    {message.name}
+                  </p>
+                )}
                 <div className="flex">
                   <span
                     className={`inline-block px-4 py-2 ${
@@ -720,8 +795,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                   >
                     {message.text}
                   </span>
-                  {/* Render the clickable link if the message contains a transaction hash */}
-
                   {/* Render the AI bot's image if available */}
                   {message.imgUrl && (
                     <img
@@ -730,10 +803,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                       className="ml-2 rounded-full w-[30px] h-[30px]"
                     />
                   )}
-                  {/* Render the AI bot's name if available */}
-                  {message.name && <p>{message.name}</p>}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

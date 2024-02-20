@@ -55,3 +55,74 @@ export const mockTransactions: TransactionInfo[] = [
   //     setMessages((prevMessages) => [...prevMessages, ...mockData]);
   //   }, 500); // Adjust delay as needed
   // };
+
+
+
+  // const sendMessageToJimmyBot = async (input: string) => {
+  //   if (activeBot?.id !== "bot2") {
+  //     console.error("This function is intended for Jimmy's bot.");
+  //     return;
+  //   }
+
+    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
+    const botImageUrl = activeBot.imgurl;
+    const AIbotName = activeBot.name;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msg: input }),
+      });
+
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       // Check if the response is directly usable JSON (e.g., conversational response)
+        if (
+          typeof data === "object" &&
+          data.hasOwnProperty("result") &&
+          !data.result.startsWith("{")
+        ) {
+          console.log(data.result);
+          // Handle conventional conversational response
+          const newMessage = {
+            id: Date.now(),
+            text: data.result,
+            sender: "ai",
+            type: "ai",
+            imgUrl: botImageUrl,
+            name: AIbotName,
+          };
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+        } else {
+          // Attempt to parse the API response for transaction data
+          const parsedResult = parseJimmyApiResponse(data.result);
+          if (parsedResult) {
+            const { message, data: jsonData } = parsedResult;
+            const messageType = jsonData ? "transactionSummary" : "ai";
+            const newMessage = {
+              id: Date.now(),
+              text: message || data.result, // Use message if available, otherwise default to data.result
+              sender: "ai",
+              type: messageType,
+              imgUrl: botImageUrl,
+              name: AIbotName,
+              ...(jsonData && { JimmySubscriptionDetails: jsonData }),
+            };
+            setMessages((prevMessages) => [...prevMessages, newMessage]);
+          } else {
+            console.log("Failed to parse API response for Jimmy's bot.");
+          }
+        }
+      } else {
+        console.error(
+          "Failed to fetch data from Jimmy's API:",
+          response.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching data from Jimmy's API:", error);
+    }
+  };
+
+
