@@ -18,7 +18,7 @@ type TransactionInfo = {
   transaction_name: string;
   token: string;
   start_time: string;
-  number_of_time: string;
+  number_of_time: number;
   end_time: string;
   receiver_wallet_address: string;
   time_interval: string;
