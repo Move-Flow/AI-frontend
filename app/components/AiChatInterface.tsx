@@ -132,8 +132,9 @@ export interface TransactionDetails {
   start_time: string;
   end_time: string;
   token: string;
+  number_of_time: number;
   time_interval: string;
-  amount: number;
+  token_amount_per_time: number;
 }
 interface Props {
   chatbotId?: string; // Make it optional
@@ -265,7 +266,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       }
       const {
         receiver_wallet_address,
-        amount,
+        token_amount_per_time,
         start_time,
         end_time,
         time_interval,
@@ -275,8 +276,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
-      const depositAmount = ethers.parseUnits(amount.toString());
-      console.log(depositAmount);
+      const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
+      console.log("token amount per time", depositAmount);
 
       // Approve the smart contract to spend tokens on your behalf with the specified gas price
       const approvalTx = await tokenContract.approve(
@@ -454,7 +455,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         coinAddress,
         startTimeStamp,
         stopTimeStamp,
-        intervalInSeconds,
+        2592000,
         1000000,
 
         { gasLimit: 500000 }
@@ -593,17 +594,26 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   const sendMessageToJimmyBot = async (input: string) => {
+    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
     try {
-      const mockResponse = {
-        result:
-          'Sure, here are the details for your subscription:\n\n```\n{\n      "transaction_name": "Monthly Service fee for financial management",\n      "Network": "BSC Chain",\n      "Token": "USDT",\n      "Sender": "User",\n      "Receiver": "Jimmy (0x65e6b348769D62397eC3aa485519Cbf1aB3eCfcF)",\n      "start_time": "2023/3/1 00:00:00",\n      "end_time": "2023/11/1 00:00:00",\n      "number_of_time": 12,\n      "token_amount_per_time": 1000,\n      "time_interval": "month" \n}\n```\n\nThis contract will start from next month. Once you confirm, I will prepare the subscription checkout for you.',
-      };
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msg: input }),
+      });
 
-      const parsedResult = parseJimmyApiResponse(mockResponse.result);
-      console.log("Parsed mock API response:", parsedResult);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API response:", data);
+
+      const parsedResult = parseJimmyApiResponse(data.result);
+      console.log("Parsed API response:", parsedResult);
 
       if (!parsedResult) {
-        console.log("Failed to parse mock API response for Jimmy's bot.");
+        console.log("Failed to parse API response for Jimmy's bot.");
         return;
       }
 
@@ -619,52 +629,11 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         ...(jsonData && { JimmySubscriptionDetails: jsonData }),
       };
 
-      setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
     } catch (error) {
-      console.error("Error handling mock response for Jimmy's bot:", error);
+      console.error("Error fetching data from Jimmy's bot:", error);
     }
   };
-
-  // const sendMessageToSarahBot = async (input: any) => {
-  //   // Mock response data
-  //   const mockResponse = {
-  //     result:
-  //       '{\n    "transaction_name": "monthly payment",\n    "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n    "remark": "0.2 BNB will be sent to Walter\'s wallet each month for the next 12 months",\n    "token": "BNB",\n    "enable_stream_rate": 1,\n    "amount": "100",\n    "start_time": "2024/2/23 00:00:00",\n    "end_time": "2024/12/31 23:59:59",\n    "number_of_time": 12,\n    "token_amount_per_time": 100,\n    "time_interval": "month"\n}',
-  //   };
-
-  //   try {
-  //     // Directly use the mock response instead of fetching from the endpoint
-  //     let apiResponse;
-
-  //     try {
-  //       apiResponse = JSON.parse(mockResponse.result);
-  //       // Assuming the response is a transaction detail object
-  //       const newMessage = {
-  //         id: Date.now(),
-  //         text: "",
-  //         sender: "ai",
-  //         type: "transactionSummary",
-  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
-  //         name: activeBot!.name,
-  //         transactionDetails: apiResponse,
-  //       };
-  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
-  //     } catch {
-  //       // Handle plain text response
-  //       const newMessage = {
-  //         id: Date.now(),
-  //         text: mockResponse.result,
-  //         sender: "ai",
-  //         type: "ai",
-  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
-  //       };
-
-  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error handling mock response from Sarah's bot:", error);
-  //   }
-  // };
 
   const sendMessageToSarahBot = async (input: any) => {
     const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
@@ -823,7 +792,11 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                         token: message.transactionDetails.token,
                         receiver_wallet_address:
                           message.transactionDetails.receiver_wallet_address,
-                        amount: message.transactionDetails.amount,
+                        token_amount_per_time:
+                          message.transactionDetails.token_amount_per_time,
+                        time_interval: message.transactionDetails.time_interval,
+                        number_of_time:
+                          message.transactionDetails.number_of_time,
                       }}
                       enableStreamRate={enableStreamRate}
                       numberOfTimes={numberOfTimes}

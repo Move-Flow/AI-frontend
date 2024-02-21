@@ -14,6 +14,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["Poppins", "sans-serif"],
+        ibm: ["IBM Plex Sans Hebrew", "sans-serif"],
       },
     },
   },

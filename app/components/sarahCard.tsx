@@ -18,9 +18,11 @@ type TransactionInfo = {
   transaction_name: string;
   token: string;
   start_time: string;
+  number_of_time: string;
   end_time: string;
   receiver_wallet_address: string;
-  amount: number;
+  time_interval: string;
+  token_amount_per_time: number;
 };
 
 // Include only the transaction-related type and remove individual transaction-related properties
@@ -49,6 +51,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
   transactionInfo,
   enableStreamRate,
   numberOfTimes,
+
   amountPerTime,
   id,
   interval,
@@ -65,10 +68,12 @@ const SarahCard: React.FC<SarahCardProps> = ({
   const {
     transaction_name,
     token,
+    time_interval,
     start_time,
+    number_of_time,
     end_time,
     receiver_wallet_address,
-    amount,
+    token_amount_per_time,
   } = transactionInfo;
 
   const [localIsTransactionLoading, setLocalIsTransactionLoading] =
@@ -82,7 +87,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
 
   // Card JSX
   return (
-    <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 bubble2 card-font my-4">
+    <div className="bg-[#464255]  w-[644px] h-[100%] rounded-[18px] p-5 bubble2 card-font my-4">
       <div className="flex justify-between mt-5 ">
         {/* Left column */}
         <div className="flex flex-col gap-y-3">
@@ -98,7 +103,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
           </div>
           <div className="text-[#A3A3A3]  tracking-wider flex items-center">
             <p className="text-[13px]">Time:</p>
-            <span className="text-white ml-2 flex items-center text-[13px]">
+            <span className="text-white ml-2 flex items-center font-ibm text-[13px]">
               {start_time}
               {/* Inline SVG for arrow. Adjust as needed. */}
               <Image
@@ -123,18 +128,9 @@ const SarahCard: React.FC<SarahCardProps> = ({
             </span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[#A3A3A3] text-[13px]">Amount:</span>
+            <span className="text-[#A3A3A3] text-[13px]">Token Amount:</span>
             <span className="text-[#F143E2] text-[13px] font-bold">
-              {amount}
-            </span>
-            <span className="text-[#A3A3A3] text-[13px]">
-              Max:{" "}
-              <span className="text-[#F143E2] text-[13px] font-bold">
-                {amount}
-              </span>
-            </span>
-            <span className="text-[##A3A3A3] text-[13px] font-bold">
-              ${token} {/* Assuming you have maxAmount in your details */}
+              {token_amount_per_time}
             </span>
           </div>
         </div>
@@ -174,73 +170,22 @@ const SarahCard: React.FC<SarahCardProps> = ({
       {enableStreamRate && (
         <Grid container spacing={3} sx={{ padding: 1 }}>
           <Grid item sm={4}>
-            <InputLabel sx={{ color: "#A3A3A3", fontSize: "16px" }} shrink>
-              No.of Time
-            </InputLabel>
-            <input
-              type="text"
-              value={numberOfTimes}
-              onChange={(e: any) => setNumberOfTimes(e.target.value)}
-              style={{
-                backgroundColor: "#313138",
-                marginBottom: "0",
-                outline: "none",
-              }}
-              className="w-full bg-blue-200 text-sm rounded mb-4 p-2 input-field"
-              placeholder="E.g. 4"
-            />
+            <p className="text-[13px] tracking-wider">
+              <span className="text-[#A3A3A3] font-ibm">No.of Time:</span>
+              {number_of_time}
+            </p>
           </Grid>
           <Grid item sm={4}>
-            <InputLabel sx={{ color: "#A3A3A3", fontSize: "16px" }} shrink>
-              Token Amount
-            </InputLabel>
-            <input
-              type="text"
-              value={amountPerTime}
-              onChange={(e: any) => setAmountPerTime(e.target.value)}
-              style={{
-                backgroundColor: "#313138",
-                marginBottom: "0",
-                outline: "none",
-              }}
-              className="w-full bg-blue-200 text-sm rounded mb-4 p-2 input-field"
-              placeholder="E.g. 4"
-            />
+            <p className="text-[13px] tracking-wider">
+              <span className="text-[#A3A3A3]"> Token Amount:</span>{" "}
+              {token_amount_per_time}
+            </p>
           </Grid>
           <Grid item sm={4}>
-            <InputLabel sx={{ color: "#A3A3A3", fontSize: "16px" }} shrink>
-              Time interval
-            </InputLabel>
-            <Select
-              value={String(interval)}
-              onChange={(e: any) => setInterval(e.target.value)}
-              sx={{
-                width: "100%",
-                backgroundColor: "#313138",
-                color: "white",
-                height: "35px",
-                fontSize: "0.875rem",
-                "&.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline":
-                  {
-                    border: 0,
-                  },
-                "&.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
-                  {
-                    border: 0,
-                  },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "transparent", // Removes the border by default
-                },
-              }}
-              disableUnderline
-              MenuProps={{
-                style: {
-                  maxHeight: 400,
-                },
-              }}
-            >
-              {generateOptions(intervals, "value", "label")}
-            </Select>
+            <p className="text-[13px] tracking-wider">
+              <span className="text-[#A3A3A3]">Time interval:</span>{" "}
+              {time_interval}
+            </p>
           </Grid>
         </Grid>
       )}
