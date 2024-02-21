@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import "@rainbow-me/rainbowkit/styles.css";
 import AiChatInterface from "./components/AiChatInterface";
@@ -19,7 +19,7 @@ declare global {
 }
 
 const inter = Inter({ subsets: ["latin"] });
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 

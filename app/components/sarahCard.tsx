@@ -20,7 +20,7 @@ type TransactionInfo = {
   start_time: string;
   end_time: string;
   receiver_wallet_address: string;
-  token_amount_per_time: number;
+  amount: number;
 };
 
 // Include only the transaction-related type and remove individual transaction-related properties
@@ -68,7 +68,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
     start_time,
     end_time,
     receiver_wallet_address,
-    token_amount_per_time,
+    amount,
   } = transactionInfo;
 
   const [localIsTransactionLoading, setLocalIsTransactionLoading] =
@@ -80,7 +80,6 @@ const SarahCard: React.FC<SarahCardProps> = ({
     setLocalIsTransactionLoading(false);
   };
 
-  
   // Card JSX
   return (
     <div className="bg-[#464255] w-[644px] h-[100%] rounded-[18px] p-5 bubble2 card-font my-4">
@@ -126,12 +125,12 @@ const SarahCard: React.FC<SarahCardProps> = ({
           <div className="flex items-center space-x-2">
             <span className="text-[#A3A3A3] text-[13px]">Amount:</span>
             <span className="text-[#F143E2] text-[13px] font-bold">
-              {token_amount_per_time}
+              {amount}
             </span>
             <span className="text-[#A3A3A3] text-[13px]">
               Max:{" "}
               <span className="text-[#F143E2] text-[13px] font-bold">
-                {token_amount_per_time}
+                {amount}
               </span>
             </span>
             <span className="text-[##A3A3A3] text-[13px] font-bold">

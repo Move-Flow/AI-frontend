@@ -121,56 +121,56 @@ export const mockTransactions: TransactionInfo[] = [
 //   }
 // };
 
-// const sendMessageToSarahBot = async (input: any) => {
-//   // Ensure this function is specifically for Sarah bot only
-//   if (activeBot?.id !== "bot1") {
-//     console.error("This function is only for Sarah bot");
-//     return;
-//   }
+const sendMessageToSarahBot = async (input: any) => {
+  // Ensure this function is specifically for Sarah bot only
+  if (activeBot?.id !== "bot1") {
+    console.error("This function is only for Sarah bot");
+    return;
+  }
 
-//   const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
-//   const botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
-//   const AIbotName = activeBot.name;
+  const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
+  const botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
+  const AIbotName = activeBot.name;
 
-//   try {
-//     const response = await fetch(endpoint, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({ msg: input }),
-//     });
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ msg: input }),
+    });
 
-//     if (response.ok) {
-//       const data = await response.json();
-//       let apiResponse;
+    if (response.ok) {
+      const data = await response.json();
+      let apiResponse;
 
-//       try {
-//         apiResponse = JSON.parse(data.result);
-//         // Assuming the response is a transaction detail object
-//         const newMessage = {
-//           id: Date.now(),
-//           text: "",
-//           sender: "ai",
-//           type: "transactionSummary",
-//           imgUrl: botImageUrl,
-//           name: AIbotName,
-//           transactionDetails: apiResponse,
-//         };
-//         setMessages((prevMessages) => [...prevMessages, newMessage]);
-//       } catch {
-//         // Handle plain text response
-//         const newMessage = {
-//           id: Date.now(),
-//           text: data.result,
-//           sender: "ai",
-//           type: "ai",
-//           imgUrl: botImageUrl,
-//         };
-//         setMessages((prevMessages) => [...prevMessages, newMessage]);
-//       }
-//     } else {
-//       console.error("Failed to fetch data from Sarah's API");
-//     }
-//   } catch (error) {
-//     console.error("Error fetching data from Sarah's API:", error);
-//   }
-// };
+      try {
+        apiResponse = JSON.parse(data.result);
+        // Assuming the response is a transaction detail object
+        const newMessage = {
+          id: Date.now(),
+          text: "",
+          sender: "ai",
+          type: "transactionSummary",
+          imgUrl: botImageUrl,
+          name: AIbotName,
+          transactionDetails: apiResponse,
+        };
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      } catch {
+        // Handle plain text response
+        const newMessage = {
+          id: Date.now(),
+          text: data.result,
+          sender: "ai",
+          type: "ai",
+          imgUrl: botImageUrl,
+        };
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      }
+    } else {
+      console.error("Failed to fetch data from Sarah's API");
+    }
+  } catch (error) {
+    console.error("Error fetching data from Sarah's API:", error);
+  }
+};

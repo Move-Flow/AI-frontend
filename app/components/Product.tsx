@@ -3,9 +3,7 @@ import AiChatInterface from "./AiChatInterface";
 import AibotInterface from "./AibotInterface";
 
 function Product() {
-  return (
-    
-  );
+  return <div></div>;
 }
 
 export default Product;

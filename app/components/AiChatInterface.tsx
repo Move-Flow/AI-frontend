@@ -133,7 +133,7 @@ export interface TransactionDetails {
   end_time: string;
   token: string;
   time_interval: string;
-  token_amount_per_time: number;
+  amount: number;
 }
 interface Props {
   chatbotId?: string; // Make it optional
@@ -264,24 +264,44 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         return;
       }
       const {
-        token_amount_per_time,
         receiver_wallet_address,
+        amount,
         start_time,
-        time_interval,
         end_time,
+        time_interval,
       } = message.transactionDetails;
 
       const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
       const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
-      const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
+      const depositAmount = ethers.parseUnits(amount.toString());
+      console.log(depositAmount);
 
       // Approve the smart contract to spend tokens on your behalf with the specified gas price
       const approvalTx = await tokenContract.approve(
         contractAddress,
         depositAmount
       );
+
+      console.log("start time", startTimeStamp);
+      console.log("start time", stopTimeStamp);
+      console.log("interval", intervalInSeconds);
+      console.log("deposit", depositAmount);
+      console.log("receiver", receiver_wallet_address);
+      // Check if the start time is before block.timestamp
+      if (startTimeStamp < currentTimeStamp) {
+        throw new Error("Start time is before current time.");
+      }
+
+      // Check if the stop time is before the start time
+      if (stopTimeStamp < startTimeStamp) {
+        throw new Error("Stop time is before start time.");
+      }
+
+      if (intervalInSeconds === 0) {
+        throw new Error("Interval cannot be 0.");
+      }
 
       // Wait for the approval transaction to be mined
       await approvalTx.wait();
@@ -301,7 +321,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         stopTimeStamp,
         intervalInSeconds,
 
-        { gasLimit: 500000 }
+        { gasLimit: 700000 }
       );
 
       console.log("Transaction sent:", tx.hash);
@@ -316,7 +336,10 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         imgUrl: "https://move-flow.github.io/assets/subscription.png",
       };
 
-      setMessages((prevMessages) => [...prevMessages, successMessage]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        successMessage as Message,
+      ]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
@@ -333,7 +356,10 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         imgUrl: "https://move-flow.github.io/assets/subscription.png",
       };
 
-      setMessages((prevMessages) => [...prevMessages, failureMessage]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        failureMessage as Message,
+      ]);
 
       setIsTransactionLoading(false);
     }
@@ -377,12 +403,31 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         return;
       }
       const Receiver = receiverAddressMatch[0]; // Use the first match as the receiver address
-      console.log("Receiver address:", Receiver);
       const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
       const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
+      const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
 
+      // Check if the start time is before block.timestamp
+      if (startTimeStamp < currentTimeStamp) {
+        throw new Error("Start time is before current time.");
+      }
+
+      // Check if the stop time is before the start time
+      if (stopTimeStamp < startTimeStamp) {
+        throw new Error("Stop time is before start time.");
+      }
+
+      if (intervalInSeconds === 0) {
+        throw new Error("Interval cannot be 0.");
+      }
+
+      console.log("Receiver address:", Receiver);
+      console.log("deposit", depositAmount);
+      console.log("start time", startTimeStamp);
+      console.log("stoptime", stopTimeStamp);
+      console.log("intervals", intervalInSeconds);
       // Approve the smart contract to spend tokens on your behalf with the specified gas price
       const approvalTx = await tokenContract.approve(
         SubscriptionContractAddress,
@@ -404,13 +449,13 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       console.log(balance);
 
       const tx = await contract.createSubscription(
-        Receiver,
+        "0xd44b6fcb1a698c8a56d9ca5f62aebb738bb09368",
         depositAmount,
         coinAddress,
         startTimeStamp,
         stopTimeStamp,
         intervalInSeconds,
-        10000,
+        1000000,
 
         { gasLimit: 500000 }
       );
@@ -424,10 +469,13 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         text: "subscription created successfully!",
         sender: "ai",
         type: "transactionSummary",
-        imgUrl: "https://move-flow.github.io/assets/subscription.png",
+        imgUrl: "https://move-flow.github.io/assets/hr.png",
       };
 
-      setMessages((prevMessages) => [...prevMessages, successMessage]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        successMessage as Message,
+      ]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
@@ -438,13 +486,16 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       // If transaction fails, set message type to "ai" with appropriate error message
       const failureMessage = {
         id: Date.now(),
-        text: "Transaction failed. Please try again later.",
+        text: "Transaction failed. Please try again.",
         sender: "ai",
         type: "ai",
-        imgUrl: "https://move-flow.github.io/assets/subscription.png",
+        imgUrl: "https://move-flow.github.io/assets/hr.png",
       };
 
-      setMessages((prevMessages) => [...prevMessages, failureMessage]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        failureMessage as Message,
+      ]);
 
       setIsTransactionLoading(false);
     }
@@ -462,7 +513,10 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         sender: "user",
         type: "user",
       };
-      setMessages((prevMessages) => [...prevMessages, newUserMessage]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        newUserMessage as Message,
+      ]);
 
       // Clears the input after the message is sent
       setInput("");
@@ -475,12 +529,12 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
           switch (mention.toLowerCase()) {
             case "@sarah":
               if (activeBot?.id === "bot1" || activeBot?.id === "Generalbot") {
-                await sendMessageToSarahBot(messageContent, true);
+                await sendMessageToSarahBot(messageContent);
               }
               break;
             case "@jimmy":
               if (activeBot?.id === "bot2" || activeBot?.id === "Generalbot") {
-                await sendMessageToJimmyBot(messageContent, true);
+                await sendMessageToJimmyBot(messageContent);
               }
               break;
             // Add cases for additional bots here
@@ -500,10 +554,10 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       }
 
       setIsFetchingData(false);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "inherit";
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-      }
+      // if (textareaRef.current) {
+      //   textareaRef.current.style.height = "inherit";
+      //   textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      // }
     }
   };
 
@@ -539,26 +593,17 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   const sendMessageToJimmyBot = async (input: string) => {
-    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg: input }),
-      });
+      const mockResponse = {
+        result:
+          'Sure, here are the details for your subscription:\n\n```\n{\n      "transaction_name": "Monthly Service fee for financial management",\n      "Network": "BSC Chain",\n      "Token": "USDT",\n      "Sender": "User",\n      "Receiver": "Jimmy (0x65e6b348769D62397eC3aa485519Cbf1aB3eCfcF)",\n      "start_time": "2023/3/1 00:00:00",\n      "end_time": "2023/11/1 00:00:00",\n      "number_of_time": 12,\n      "token_amount_per_time": 1000,\n      "time_interval": "month" \n}\n```\n\nThis contract will start from next month. Once you confirm, I will prepare the subscription checkout for you.',
+      };
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("API response:", data);
-
-      const parsedResult = parseJimmyApiResponse(data.result);
-      console.log("Parsed API response:", parsedResult);
+      const parsedResult = parseJimmyApiResponse(mockResponse.result);
+      console.log("Parsed mock API response:", parsedResult);
 
       if (!parsedResult) {
-        console.log("Failed to parse API response for Jimmy's bot.");
+        console.log("Failed to parse mock API response for Jimmy's bot.");
         return;
       }
 
@@ -574,53 +619,104 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         ...(jsonData && { JimmySubscriptionDetails: jsonData }),
       };
 
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
     } catch (error) {
-      console.error("Error fetching data from Jimmy's bot:", error);
+      console.error("Error handling mock response for Jimmy's bot:", error);
     }
   };
+
+  // const sendMessageToSarahBot = async (input: any) => {
+  //   // Mock response data
+  //   const mockResponse = {
+  //     result:
+  //       '{\n    "transaction_name": "monthly payment",\n    "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n    "remark": "0.2 BNB will be sent to Walter\'s wallet each month for the next 12 months",\n    "token": "BNB",\n    "enable_stream_rate": 1,\n    "amount": "100",\n    "start_time": "2024/2/23 00:00:00",\n    "end_time": "2024/12/31 23:59:59",\n    "number_of_time": 12,\n    "token_amount_per_time": 100,\n    "time_interval": "month"\n}',
+  //   };
+
+  //   try {
+  //     // Directly use the mock response instead of fetching from the endpoint
+  //     let apiResponse;
+
+  //     try {
+  //       apiResponse = JSON.parse(mockResponse.result);
+  //       // Assuming the response is a transaction detail object
+  //       const newMessage = {
+  //         id: Date.now(),
+  //         text: "",
+  //         sender: "ai",
+  //         type: "transactionSummary",
+  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
+  //         name: activeBot!.name,
+  //         transactionDetails: apiResponse,
+  //       };
+  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+  //     } catch {
+  //       // Handle plain text response
+  //       const newMessage = {
+  //         id: Date.now(),
+  //         text: mockResponse.result,
+  //         sender: "ai",
+  //         type: "ai",
+  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
+  //       };
+
+  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error handling mock response from Sarah's bot:", error);
+  //   }
+  // };
 
   const sendMessageToSarahBot = async (input: any) => {
-    // Mock response data
-    const mockResponse = {
-      result:
-        '{\n    "transaction_name": "monthly payment",\n    "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n    "remark": "0.2 BNB will be sent to Walter\'s wallet each month for the next 12 months",\n    "token": "BNB",\n    "enable_stream_rate": 1,\n    "amount": "100",\n    "start_time": "2024/2/23 00:00:00",\n    "end_time": "2024/12/31 23:59:59",\n    "number_of_time": 12,\n    "token_amount_per_time": 100,\n    "time_interval": "month"\n}',
-    };
+    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
 
     try {
-      // Directly use the mock response instead of fetching from the endpoint
-      let apiResponse;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msg: input }),
+      });
 
-      try {
-        apiResponse = JSON.parse(mockResponse.result);
-        // Assuming the response is a transaction detail object
-        const newMessage = {
-          id: Date.now(),
-          text: "",
-          sender: "ai",
-          type: "transactionSummary",
-          imgUrl: "https://move-flow.github.io/assets/subscription.png",
-          name: activeBot!.name,
-          transactionDetails: apiResponse,
-        };
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-      } catch {
-        // Handle plain text response
-        const newMessage = {
-          id: Date.now(),
-          text: mockResponse.result,
-          sender: "ai",
-          type: "ai",
-          imgUrl: "https://move-flow.github.io/assets/subscription.png",
-        };
+      if (response.ok) {
+        const data = await response.json();
+        let apiResponse;
 
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        try {
+          apiResponse = JSON.parse(data.result);
+          // Assuming the response is a transaction detail object
+          const newMessage = {
+            id: Date.now(),
+            text: "",
+            sender: "ai",
+            type: "transactionSummary",
+            imgUrl: "https://move-flow.github.io/assets/subscription.png",
+
+            transactionDetails: apiResponse,
+          };
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            newMessage as Message,
+          ]);
+        } catch {
+          // Handle plain text response
+          const newMessage = {
+            id: Date.now(),
+            text: data.result,
+            sender: "ai",
+            type: "ai",
+            imgUrl: "https://move-flow.github.io/assets/subscription.png",
+          };
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            newMessage as Message,
+          ]);
+        }
+      } else {
+        console.error("Failed to fetch data from Sarah's API");
       }
     } catch (error) {
-      console.error("Error handling mock response from Sarah's bot:", error);
+      console.error("Error fetching data from Sarah's API:", error);
     }
   };
-
   return (
     <div className="w-full lg:h-[670px] xl:h-[90vh] 2xl:h-[750px] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px]  flex flex-col">
       {activeBot && (
@@ -692,7 +788,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
               <div className="flex flex-col justify-end my-4" key={message.id}>
                 <div className="flex flex-col justify-end items-end">
                   <div className="flex justify-end">
-                    <span className="inline-block px-4 py-2 bg-[#464255] my-3 text-white bubble2">
+                    <span className="inline-block px-4 py-2 bg-[#464255] my-3 text-white  max-w-[654px] break-words tracking-wider leading-[22px] font-sans xl:text-[12px] 2xl:text-[14px] bubble2">
                       {message.text}
                     </span>
                     {message.imgUrl && (
@@ -704,6 +800,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                     )}
                   </div>
                 </div>
+
                 {/* Render additional components related to transaction summary */}
                 {message.JimmySubscriptionDetails && (
                   <div className="flex justify-end">
@@ -726,8 +823,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
                         token: message.transactionDetails.token,
                         receiver_wallet_address:
                           message.transactionDetails.receiver_wallet_address,
-                        token_amount_per_time:
-                          message.transactionDetails.token_amount_per_time,
+                        amount: message.transactionDetails.amount,
                       }}
                       enableStreamRate={enableStreamRate}
                       numberOfTimes={numberOfTimes}
