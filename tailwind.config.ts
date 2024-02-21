@@ -11,7 +11,11 @@ const config: Config = {
       center: true,
       padding: "0.9rem",
     },
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ["Poppins", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 };

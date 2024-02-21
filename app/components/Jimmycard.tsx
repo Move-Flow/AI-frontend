@@ -46,7 +46,7 @@ const JimmyCard: React.FC<JimmyCardProps> = ({
         <p className="mb-1 card-font tracking-wider text-[13px]">
           <span className="text-[#A3A3A3]">Select network and token：</span>{" "}
           <span className="text-white">
-            {Network} {Token}
+            {Network} {token_amount_per_time} {Token}
           </span>
         </p>
         <p className="mb-1 card-font tracking-wider text-[13px]">

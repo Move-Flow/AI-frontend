@@ -8,6 +8,8 @@ import Abi from "../contractABI/ABI.json";
 import Approve from "../contractABI/approve.json";
 import subscriptionAbi from "../contractABI/subscriptionABI.json";
 import { ethers } from "ethers";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import HomeIcon from "@mui/icons-material/Home";
 import SearchIcon from "@mui/icons-material/Search";
@@ -71,10 +73,6 @@ interface Message {
   JimmySubscriptionDetails?: JimmySubscriptionDetails;
 }
 
-interface Window {
-  ethereum: any;
-}
-
 interface NormalMessage {
   text: string;
 }
@@ -134,7 +132,7 @@ export interface TransactionDetails {
   start_time: string;
   end_time: string;
   token: string;
-  interval: string;
+  time_interval: string;
   token_amount_per_time: number;
 }
 interface Props {
@@ -159,7 +157,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState("");
   // Assuming you have an environment variable for the contract address and Ethereum node URL
-  const contractAddress = "0x638f4e36Dd45ec543670a185334C0b8fa6eDd0a9";
+  const contractAddress = "0xee37cdd0cfcBC6BE5db14cb92D33F6ce6d8d74fA";
   const SubscriptionContractAddress =
     "0x4027c067473066FE9D9588290554c16e016f34A7";
 
@@ -248,93 +246,61 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
     setInput(event.target.value);
   };
 
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  let signer: any;
-  let contract: ethers.Contract;
-
-  // Function to initialize the signer and contract
-  const initializeEthereum = async () => {
-    if (!signer) {
-      signer = await provider.getSigner();
-    }
-    if (!contract) {
-      contract = new ethers.Contract(contractAddress, Abi, signer);
-    }
-  };
+  const coinAddress = "0x753F5A6785CcA3f8636D3e2E084094B0C6B9C476";
 
   const handleTransaction = async (messageId: number) => {
-    setIsTransactionLoading(true);
-    console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
-    const message = messages.find((m) => m.id === messageId);
-
-    if (!message || !message.transactionDetails) {
-      console.error("Invalid transaction message for ID:", messageId);
-      setIsTransactionLoading(false);
-      return;
-    }
-    const {
-      token_amount_per_time,
-      receiver_wallet_address,
-      start_time,
-      end_time,
-    } = message.transactionDetails;
-
-    const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
-    const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
-    const intervalInSeconds = convertRateTypeToSeconds(interval);
-    const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
-    const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
-
-    // Function to approve tokens
-    const approveTokens = async (
-      tokenContract: ethers.Contract,
-      deposit: bigint
-    ) => {
-      const approvalTx = await tokenContract.approve(contractAddress, deposit);
-      await approvalTx.wait();
-      console.log("Tokens approved");
-    };
-
-    console.log("stop time:", stopTimeStamp);
-    console.log("deposit", depositAmount);
-    console.log("end time", startTimeStamp);
-    console.log("intervals", intervalInSeconds);
-
     try {
-      await initializeEthereum();
-
-      const coinAddress = "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368";
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       const tokenContract = new ethers.Contract(coinAddress, Approve, signer);
-      const Contract = new ethers.Contract(contractAddress, Abi, signer);
-      const address = await signer.getAddress();
-      console.log("User address:", address);
-      const balance = await provider.getBalance(address);
-      console.log("User balance:", ethers.formatEther(balance) + " ETH");
 
-      // Convert balance to a comparable number format
-      const balanceInEther = parseFloat(ethers.formatEther(balance));
+      setIsTransactionLoading(true);
+      console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
+      const message = messages.find((m) => m.id === messageId);
 
-      // Convert depositAmount back to a number for comparison
-      const depositAmountInEther = parseFloat(
-        ethers.formatEther(depositAmount)
-      );
-
-      // Check if the user has enough balance to cover the deposit amount
-      if (balanceInEther < depositAmountInEther) {
-        console.error("Insufficient balance for the transaction.");
-        alert("You have insufficient balance to complete this transaction.");
+      if (!message || !message.transactionDetails) {
+        console.error("Invalid transaction message for ID:", messageId);
         setIsTransactionLoading(false);
         return;
       }
-      await approveTokens(tokenContract, depositAmount);
+      const {
+        token_amount_per_time,
+        receiver_wallet_address,
+        start_time,
+        time_interval,
+        end_time,
+      } = message.transactionDetails;
 
-      const tx = await Contract.createStream(
+      const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
+      const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
+      const intervalInSeconds = convertRateTypeToSeconds(time_interval);
+      const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
+      const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
+
+      // Approve the smart contract to spend tokens on your behalf with the specified gas price
+      const approvalTx = await tokenContract.approve(
+        contractAddress,
+        depositAmount
+      );
+
+      // Wait for the approval transaction to be mined
+      await approvalTx.wait();
+      console.log("Tokens approved");
+
+      const contract = new ethers.Contract(contractAddress, Abi, signer);
+
+      const address = await signer.getAddress();
+      const balance = await provider.getBalance(address);
+      console.log(balance);
+
+      const tx = await contract.createStream(
         receiver_wallet_address,
         depositAmount,
         coinAddress,
         startTimeStamp,
         stopTimeStamp,
         intervalInSeconds,
+
         { gasLimit: 500000 }
       );
 
@@ -342,185 +308,201 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       await tx.wait();
       console.log("Stream created successfully");
       setIsTransactionLoading(false);
-
-      const transactionHash = tx.hash;
-      const bscScanUrl = `https://testnet.bscscan.com/tx/${transactionHash}`;
-
-      // Create a special message type for transaction links
-      const transactionLinkMessage: Message = {
+      const successMessage = {
         id: Date.now(),
-        text: "Stream created successfully!", // Store the URL directly in the text or create a new property
+        text: "Transaction completed successfully!",
         sender: "ai",
-        type: "transactionLink", // Custom type for transaction links
+        type: "transactionSummary",
+        imgUrl: "https://move-flow.github.io/assets/subscription.png",
       };
 
-      // Add the transaction link message to your messages state
-      setMessages((prevMessages) => [...prevMessages, transactionLinkMessage]);
+      setMessages((prevMessages) => [...prevMessages, successMessage]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
         // User rejected the transaction
         console.log("User rejected the transaction.");
       }
+
+      // If transaction fails, set message type to "ai" with appropriate error message
+      const failureMessage = {
+        id: Date.now(),
+        text: "Transaction failed. Please try again later.",
+        sender: "ai",
+        type: "ai",
+        imgUrl: "https://move-flow.github.io/assets/subscription.png",
+      };
+
+      setMessages((prevMessages) => [...prevMessages, failureMessage]);
+
       setIsTransactionLoading(false);
     }
   };
 
   const handleSubscription = async (messageId: number) => {
-    setIsTransactionLoading(true);
-    console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
-    const message = messages.find((m) => m.id === messageId);
-
-    if (!message || !message.JimmySubscriptionDetails) {
-      console.error("Invalid transaction message for ID:", messageId);
-      setIsTransactionLoading(false);
-      return;
-    }
-    if (!message.JimmySubscriptionDetails) {
-      console.error("JimmySubscriptionDetails is undefined.");
-      return;
-    }
-
-    // Now TypeScript knows JimmySubscriptionDetails is not undefined
-    const {
-      start_time,
-      end_time,
-      time_interval,
-      Receiver: receiverWithBrackets,
-      token_amount_per_time,
-    } = message.JimmySubscriptionDetails;
-
-    // Extract just the wallet address from the Receiver string
-    const receiverAddressMatch =
-      receiverWithBrackets.match(/0x[a-fA-F0-9]{40}/);
-    if (!receiverAddressMatch) {
-      console.error("Invalid Receiver wallet address.");
-      setIsTransactionLoading(false);
-      return;
-    }
-    const Receiver = receiverAddressMatch[0]; // Use the first match as the receiver address
-    console.log("Receiver address:", Receiver);
-    const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
-    const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
-    const intervalInSeconds = convertRateTypeToSeconds(time_interval);
-    const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
-
-    // Function to approve tokens
-    const approveTokens = async (
-      tokenContract: ethers.Contract,
-      deposit: bigint
-    ) => {
-      const approvalTx = await tokenContract.approve(
-        SubscriptionContractAddress,
-        deposit
-      );
-      await approvalTx.wait();
-      console.log("Tokens approved");
-    };
-
-    console.log("stop time:", stopTimeStamp);
-    console.log("deposit", depositAmount);
-    console.log("end time", startTimeStamp);
-    console.log("intervals", intervalInSeconds);
-
     try {
-      await initializeEthereum();
-
-      const coinAddress = "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368";
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       const tokenContract = new ethers.Contract(coinAddress, Approve, signer);
-      const Contract = new ethers.Contract(
-        SubscriptionContractAddress,
-        Abi,
-        signer
-      );
-      const address = await signer.getAddress();
-      console.log("User address:", address);
-      const balance = await provider.getBalance(address);
-      console.log("User balance:", ethers.formatEther(balance) + " ETH");
 
-      // Convert balance to a comparable number format
-      const balanceInEther = parseFloat(ethers.formatEther(balance));
+      setIsTransactionLoading(true);
+      console.log(`Processing transaction for message ID: ${messageId}`); // Log for debugging
+      const message = messages.find((m) => m.id === messageId);
 
-      // Convert depositAmount back to a number for comparison
-      const depositAmountInEther = parseFloat(
-        ethers.formatEther(depositAmount)
-      );
-
-      // Check if the user has enough balance to cover the deposit amount
-      if (balanceInEther < depositAmountInEther) {
-        console.error("Insufficient balance for the transaction.");
-        alert("You have insufficient balance to complete this transaction.");
+      if (!message || !message.JimmySubscriptionDetails) {
+        console.error("Invalid transaction message for ID:", messageId);
         setIsTransactionLoading(false);
         return;
       }
-      await approveTokens(tokenContract, depositAmount);
+      if (!message.JimmySubscriptionDetails) {
+        console.error("JimmySubscriptionDetails is undefined.");
+        return;
+      }
 
-      const tx = await Contract.createStream(
+      // Now TypeScript knows JimmySubscriptionDetails is not undefined
+      const {
+        start_time,
+        end_time,
+        time_interval,
+        Receiver: receiverWithBrackets,
+        token_amount_per_time,
+      } = message.JimmySubscriptionDetails;
+
+      // Extract just the wallet address from the Receiver string
+      const receiverAddressMatch =
+        receiverWithBrackets.match(/0x[a-fA-F0-9]{40}/);
+      if (!receiverAddressMatch) {
+        console.error("Invalid Receiver wallet address.");
+        setIsTransactionLoading(false);
+        return;
+      }
+      const Receiver = receiverAddressMatch[0]; // Use the first match as the receiver address
+      console.log("Receiver address:", Receiver);
+      const startTimeStamp = Math.floor(new Date(start_time).getTime() / 1000);
+      const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
+      const intervalInSeconds = convertRateTypeToSeconds(time_interval);
+      const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
+
+      // Approve the smart contract to spend tokens on your behalf with the specified gas price
+      const approvalTx = await tokenContract.approve(
+        SubscriptionContractAddress,
+        depositAmount
+      );
+
+      // Wait for the approval transaction to be mined
+      await approvalTx.wait();
+      console.log("Tokens approved");
+
+      const contract = new ethers.Contract(
+        SubscriptionContractAddress,
+        subscriptionAbi,
+        signer
+      );
+
+      const address = await signer.getAddress();
+      const balance = await provider.getBalance(address);
+      console.log(balance);
+
+      const tx = await contract.createSubscription(
         Receiver,
         depositAmount,
         coinAddress,
         startTimeStamp,
         stopTimeStamp,
         intervalInSeconds,
+        10000,
+
         { gasLimit: 500000 }
       );
 
       console.log("Transaction sent:", tx.hash);
       await tx.wait();
-      console.log("Subscription created successfully");
+      console.log("Stream created successfully!");
       setIsTransactionLoading(false);
-
-      const transactionHash = tx.hash;
-      // const bscScanUrl = `https://testnet.bscscan.com/tx/${transactionHash}`;
-
-      // Create a special message type for transaction links
-      const transactionLinkMessage: Message = {
+      const successMessage = {
         id: Date.now(),
-        text: "Subscription created successfully!", // Store the URL directly in the text or create a new property
+        text: "subscription created successfully!",
         sender: "ai",
-        type: "transactionLink", // Custom type for transaction links
+        type: "transactionSummary",
+        imgUrl: "https://move-flow.github.io/assets/subscription.png",
       };
 
-      // Add the transaction link message to your messages state
-      setMessages((prevMessages) => [...prevMessages, transactionLinkMessage]);
+      setMessages((prevMessages) => [...prevMessages, successMessage]);
     } catch (error: any) {
       console.error("Transaction error:", error);
       if (error.code === 4001) {
         // User rejected the transaction
         console.log("User rejected the transaction.");
       }
+
+      // If transaction fails, set message type to "ai" with appropriate error message
+      const failureMessage = {
+        id: Date.now(),
+        text: "Transaction failed. Please try again later.",
+        sender: "ai",
+        type: "ai",
+        imgUrl: "https://move-flow.github.io/assets/subscription.png",
+      };
+
+      setMessages((prevMessages) => [...prevMessages, failureMessage]);
+
       setIsTransactionLoading(false);
     }
   };
 
   const handleSend = async () => {
     if (input.trim()) {
-      setIsFetchingData(true); // Set fetching data state to true when sending message
+      setIsFetchingData(true);
       setFetchError("");
+
       // Add the new user message to the chat
       const newUserMessage = {
         id: messages.length + 1,
-        text: input,
+        text: input.trim(), // Use the input without highlighting
         sender: "user",
         type: "user",
       };
       setMessages((prevMessages) => [...prevMessages, newUserMessage]);
-      // Clear the input
-      setInput(""); // Set input to an empty string
-      // Send the user input to the bot's API and handle the response
-      // Check which bot is active and send the message to the appropriate bot
-      if (activeBot?.id === "bot1") {
-        await sendMessageToSarahBot(input); // For Sarah's bot
-      } else if (activeBot?.id === "bot2") {
-        await sendMessageToJimmyBot(input); // For Jimmy's bot
-        // You can add else if clauses here for other bots as needed
+
+      // Clears the input after the message is sent
+      setInput("");
+
+      // Handle bot mentions and send messages accordingly
+      const botMentions = input.match(/@\w+/g);
+      if (botMentions && botMentions.length > 0) {
+        for (const mention of botMentions) {
+          const messageContent = input.split(mention)[1]?.trim();
+          switch (mention.toLowerCase()) {
+            case "@sarah":
+              if (activeBot?.id === "bot1" || activeBot?.id === "Generalbot") {
+                await sendMessageToSarahBot(messageContent, true);
+              }
+              break;
+            case "@jimmy":
+              if (activeBot?.id === "bot2" || activeBot?.id === "Generalbot") {
+                await sendMessageToJimmyBot(messageContent, true);
+              }
+              break;
+            // Add cases for additional bots here
+          }
+        }
+      } else {
+        // Handle case where no specific bot is mentioned or not in General bot
+        switch (activeBot?.id) {
+          case "bot1":
+            await sendMessageToSarahBot(input);
+            break;
+          case "bot2":
+            await sendMessageToJimmyBot(input);
+            break;
+          // Add cases for additional bots here
+        }
       }
 
       setIsFetchingData(false);
-
       if (textareaRef.current) {
         textareaRef.current.style.height = "inherit";
-        textareaRef.current.style.height = "34px";
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
       }
     }
   };
@@ -557,15 +539,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   const sendMessageToJimmyBot = async (input: string) => {
-    if (activeBot?.id !== "bot2") {
-      console.error("This function is intended for Jimmy's bot.");
-      return;
-    }
-
     const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
-    const botImageUrl = activeBot.imgurl;
-    const AIbotName = activeBot.name;
-
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -595,8 +569,8 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         text: message || "Received a response from Jimmy's bot.",
         sender: "ai",
         type: messageType,
-        imgUrl: botImageUrl,
-        name: AIbotName,
+        imgUrl: "https://move-flow.github.io/assets/hr.png",
+        name: activeBot!.name,
         ...(jsonData && { JimmySubscriptionDetails: jsonData }),
       };
 
@@ -607,56 +581,43 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
   };
 
   const sendMessageToSarahBot = async (input: any) => {
-    // Ensure this function is specifically for Sarah bot only
-    if (activeBot?.id !== "bot1") {
-      console.error("This function is only for Sarah bot");
-      return;
-    }
-
-    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
-    const botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
-    const AIbotName = activeBot.name;
+    // Mock response data
+    const mockResponse = {
+      result:
+        '{\n    "transaction_name": "monthly payment",\n    "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n    "remark": "0.2 BNB will be sent to Walter\'s wallet each month for the next 12 months",\n    "token": "BNB",\n    "enable_stream_rate": 1,\n    "amount": "100",\n    "start_time": "2024/2/23 00:00:00",\n    "end_time": "2024/12/31 23:59:59",\n    "number_of_time": 12,\n    "token_amount_per_time": 100,\n    "time_interval": "month"\n}',
+    };
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg: input }),
-      });
+      // Directly use the mock response instead of fetching from the endpoint
+      let apiResponse;
 
-      if (response.ok) {
-        const data = await response.json();
-        let apiResponse;
+      try {
+        apiResponse = JSON.parse(mockResponse.result);
+        // Assuming the response is a transaction detail object
+        const newMessage = {
+          id: Date.now(),
+          text: "",
+          sender: "ai",
+          type: "transactionSummary",
+          imgUrl: "https://move-flow.github.io/assets/subscription.png",
+          name: activeBot!.name,
+          transactionDetails: apiResponse,
+        };
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      } catch {
+        // Handle plain text response
+        const newMessage = {
+          id: Date.now(),
+          text: mockResponse.result,
+          sender: "ai",
+          type: "ai",
+          imgUrl: "https://move-flow.github.io/assets/subscription.png",
+        };
 
-        try {
-          apiResponse = JSON.parse(data.result);
-          // Assuming the response is a transaction detail object
-          const newMessage = {
-            id: Date.now(),
-            text: "",
-            sender: "ai",
-            type: "transactionSummary",
-            imgUrl: botImageUrl,
-            name: AIbotName,
-            transactionDetails: apiResponse,
-          };
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        } catch {
-          // Handle plain text response
-          const newMessage = {
-            id: Date.now(),
-            text: data.result,
-            sender: "ai",
-            type: "ai",
-            imgUrl: botImageUrl,
-          };
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        }
-      } else {
-        console.error("Failed to fetch data from Sarah's API");
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
       }
     } catch (error) {
-      console.error("Error fetching data from Sarah's API:", error);
+      console.error("Error handling mock response from Sarah's bot:", error);
     }
   };
 
@@ -727,37 +688,32 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       >
         {messages.map((message) => {
           if (message.type === "transactionSummary") {
-            // Render 'transactionSummary' message type
             return (
               <div className="flex flex-col justify-end my-4" key={message.id}>
-                {/* Render the transaction summary text as an AI response */}
                 <div className="flex flex-col justify-end items-end">
-                  <span className="text-[#A3A3A3] text-sm mr-11 capitalize">
-                    {message.name}
-                  </span>
                   <div className="flex justify-end">
                     <span className="inline-block px-4 py-2 bg-[#464255] my-3 text-white bubble2">
                       {message.text}
                     </span>
-                    <img
-                      src={message.imgUrl}
-                      alt="Chatbot"
-                      className="ml-2 rounded-full w-[30px] h-[30px]"
-                    />
+                    {message.imgUrl && (
+                      <img
+                        src={message.imgUrl}
+                        alt="Chatbot"
+                        className="ml-2 rounded-full w-[30px] h-[30px]"
+                      />
+                    )}
                   </div>
                 </div>
-
-                {/* Check which bot's transaction details to render */}
-                {activeBot?.id === "bot2" &&
-                  message.JimmySubscriptionDetails && (
-                    <div className="flex justify-end">
-                      <JimmyCard
-                        onConfirm={() => handleSubscription(message.id)}
-                        subscriptionDetails={message.JimmySubscriptionDetails}
-                      />
-                    </div>
-                  )}
-                {activeBot?.id === "bot1" && message.transactionDetails && (
+                {/* Render additional components related to transaction summary */}
+                {message.JimmySubscriptionDetails && (
+                  <div className="flex justify-end">
+                    <JimmyCard
+                      onConfirm={() => handleSubscription(message.id)}
+                      subscriptionDetails={message.JimmySubscriptionDetails}
+                    />
+                  </div>
+                )}
+                {message.transactionDetails && (
                   <div className="flex justify-end">
                     <SarahCard
                       id={message.id}
@@ -799,37 +755,38 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
               }`}
             >
               <div className="flex flex-col items-end">
-                {/* Render the AI bot's name if available */}
-                {message.name && (
-                  <p className="text-[#A3A3A3] text-sm mr-11 ">
-                    {message.name}
-                  </p>
-                )}
                 <div className="flex">
+                  {message.sender === "user" && (
+                    <img
+                      src="https://move-flow.github.io/assets/user.png"
+                      alt="User"
+                      className="mr-2 rounded-full w-[30px] h-[30px]"
+                    />
+                  )}
+
                   <span
                     className={`inline-block px-4 py-2 ${
                       message.sender === "ai"
                         ? "bg-[#464255] py-3 my-3 text-white bubble2"
                         : "bg-[#17161E] py-3 my-3 text-white bubble"
-                    }`}
+                    } max-w-[654px] break-words tracking-wider leading-[22px] font-sans xl:text-[12px] 2xl:text-[14px]`}
                   >
                     {message.text}
                   </span>
-                  {/* Render the AI bot's image if available */}
-                  {message.imgUrl && (
-                    <img
-                      src={message.imgUrl}
-                      alt="Chatbot"
-                      className="ml-2 rounded-full w-[30px] h-[30px]"
-                    />
-                  )}
+                  {message.sender === "ai" &&
+                    message.imgUrl && ( // Use the respective bot's image if available
+                      <img
+                        src={message.imgUrl}
+                        alt="Chatbot"
+                        className="ml-2 rounded-full w-[30px] h-[30px]"
+                      />
+                    )}
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-
       <div className="flex flex-col my-4 relative rounded-[13px] border border-[#3B3741]">
         <textarea
           value={input}

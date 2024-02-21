@@ -34,95 +34,143 @@ export const mockTransactions: TransactionInfo[] = [
   // Add more mock transactions if needed
 ];
 
+// const sendMessageToBot = async (input: string) => {
+//   // You can still determine which bot is active based on chatbotId if needed
+//   const activeBot = chatbots.find((bot) => bot.id === chatbotId);
+//   if (!activeBot) return;
 
+//   // Simulate an API response delay
+//   setTimeout(() => {
+//     const mockData = mockTransactions.map((transaction, index) => ({
+//       id: Date.now() + index, // Unique id for each message
+//       text: "", // You might want to include some text here if needed
+//       sender: "ai",
+//       type: "transactionSummary",
+//       transactionDetails: transaction,
+//     }));
 
-  // const sendMessageToBot = async (input: string) => {
-  //   // You can still determine which bot is active based on chatbotId if needed
-  //   const activeBot = chatbots.find((bot) => bot.id === chatbotId);
-  //   if (!activeBot) return;
+//     // Update your messages state with the mock data
+//     setMessages((prevMessages) => [...prevMessages, ...mockData]);
+//   }, 500); // Adjust delay as needed
+// };
 
-  //   // Simulate an API response delay
-  //   setTimeout(() => {
-  //     const mockData = mockTransactions.map((transaction, index) => ({
-  //       id: Date.now() + index, // Unique id for each message
-  //       text: "", // You might want to include some text here if needed
-  //       sender: "ai",
-  //       type: "transactionSummary",
-  //       transactionDetails: transaction,
-  //     }));
+// const sendMessageToJimmyBot = async (input: string) => {
+//   if (activeBot?.id !== "bot2") {
+//     console.error("This function is intended for Jimmy's bot.");
+//     return;
+//   }
 
-  //     // Update your messages state with the mock data
-  //     setMessages((prevMessages) => [...prevMessages, ...mockData]);
-  //   }, 500); // Adjust delay as needed
-  // };
+//   const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
+//   const botImageUrl = activeBot.imgurl;
+//   const AIbotName = activeBot.name;
 
+//   try {
+//     const response = await fetch(endpoint, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ msg: input }),
+//     });
 
+// //     if (response.ok) {
+// //       const data = await response.json();
+// //       // Check if the response is directly usable JSON (e.g., conversational response)
+//       if (
+//         typeof data === "object" &&
+//         data.hasOwnProperty("result") &&
+//         !data.result.startsWith("{")
+//       ) {
+//         console.log(data.result);
+//         // Handle conventional conversational response
+//         const newMessage = {
+//           id: Date.now(),
+//           text: data.result,
+//           sender: "ai",
+//           type: "ai",
+//           imgUrl: botImageUrl,
+//           name: AIbotName,
+//         };
+//         setMessages((prevMessages) => [...prevMessages, newMessage]);
+//       } else {
+//         // Attempt to parse the API response for transaction data
+//         const parsedResult = parseJimmyApiResponse(data.result);
+//         if (parsedResult) {
+//           const { message, data: jsonData } = parsedResult;
+//           const messageType = jsonData ? "transactionSummary" : "ai";
+//           const newMessage = {
+//             id: Date.now(),
+//             text: message || data.result, // Use message if available, otherwise default to data.result
+//             sender: "ai",
+//             type: messageType,
+//             imgUrl: botImageUrl,
+//             name: AIbotName,
+//             ...(jsonData && { JimmySubscriptionDetails: jsonData }),
+//           };
+//           setMessages((prevMessages) => [...prevMessages, newMessage]);
+//         } else {
+//           console.log("Failed to parse API response for Jimmy's bot.");
+//         }
+//       }
+//     } else {
+//       console.error(
+//         "Failed to fetch data from Jimmy's API:",
+//         response.statusText
+//       );
+//     }
+//   } catch (error) {
+//     console.error("Error fetching data from Jimmy's API:", error);
+//   }
+// };
 
-  // const sendMessageToJimmyBot = async (input: string) => {
-  //   if (activeBot?.id !== "bot2") {
-  //     console.error("This function is intended for Jimmy's bot.");
-  //     return;
-  //   }
+// const sendMessageToSarahBot = async (input: any) => {
+//   // Ensure this function is specifically for Sarah bot only
+//   if (activeBot?.id !== "bot1") {
+//     console.error("This function is only for Sarah bot");
+//     return;
+//   }
 
-    const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/jimmy";
-    const botImageUrl = activeBot.imgurl;
-    const AIbotName = activeBot.name;
+//   const endpoint = "https://moveflow-ai-api-backend.vercel.app/api/sarah";
+//   const botImageUrl = activeBot.imgurl; // Set bot's image URL for Sarah
+//   const AIbotName = activeBot.name;
 
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg: input }),
-      });
+//   try {
+//     const response = await fetch(endpoint, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ msg: input }),
+//     });
 
-  //     if (response.ok) {
-  //       const data = await response.json();
-  //       // Check if the response is directly usable JSON (e.g., conversational response)
-        if (
-          typeof data === "object" &&
-          data.hasOwnProperty("result") &&
-          !data.result.startsWith("{")
-        ) {
-          console.log(data.result);
-          // Handle conventional conversational response
-          const newMessage = {
-            id: Date.now(),
-            text: data.result,
-            sender: "ai",
-            type: "ai",
-            imgUrl: botImageUrl,
-            name: AIbotName,
-          };
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-        } else {
-          // Attempt to parse the API response for transaction data
-          const parsedResult = parseJimmyApiResponse(data.result);
-          if (parsedResult) {
-            const { message, data: jsonData } = parsedResult;
-            const messageType = jsonData ? "transactionSummary" : "ai";
-            const newMessage = {
-              id: Date.now(),
-              text: message || data.result, // Use message if available, otherwise default to data.result
-              sender: "ai",
-              type: messageType,
-              imgUrl: botImageUrl,
-              name: AIbotName,
-              ...(jsonData && { JimmySubscriptionDetails: jsonData }),
-            };
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
-          } else {
-            console.log("Failed to parse API response for Jimmy's bot.");
-          }
-        }
-      } else {
-        console.error(
-          "Failed to fetch data from Jimmy's API:",
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching data from Jimmy's API:", error);
-    }
-  };
+//     if (response.ok) {
+//       const data = await response.json();
+//       let apiResponse;
 
-
+//       try {
+//         apiResponse = JSON.parse(data.result);
+//         // Assuming the response is a transaction detail object
+//         const newMessage = {
+//           id: Date.now(),
+//           text: "",
+//           sender: "ai",
+//           type: "transactionSummary",
+//           imgUrl: botImageUrl,
+//           name: AIbotName,
+//           transactionDetails: apiResponse,
+//         };
+//         setMessages((prevMessages) => [...prevMessages, newMessage]);
+//       } catch {
+//         // Handle plain text response
+//         const newMessage = {
+//           id: Date.now(),
+//           text: data.result,
+//           sender: "ai",
+//           type: "ai",
+//           imgUrl: botImageUrl,
+//         };
+//         setMessages((prevMessages) => [...prevMessages, newMessage]);
+//       }
+//     } else {
+//       console.error("Failed to fetch data from Sarah's API");
+//     }
+//   } catch (error) {
+//     console.error("Error fetching data from Sarah's API:", error);
+//   }
+// };

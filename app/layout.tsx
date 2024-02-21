@@ -10,6 +10,13 @@ import Box from "@mui/material/Box";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Loading from "./page";
+import { toast, ToastContainer } from "react-toastify";
+
+declare global {
+  interface Window {
+    ethereum: any;
+  }
+}
 
 const inter = Inter({ subsets: ["latin"] });
 export default function RootLayout({ children }) {
@@ -38,6 +45,17 @@ export default function RootLayout({ children }) {
           {/* Assume AppProvider, Header, Box, Loading are defined elsewhere */}
           <AppProvider>
             <Header />
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
             <Box>{isLoading ? <Loading /> : children}</Box>
           </AppProvider>
         </main>
