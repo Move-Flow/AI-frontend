@@ -276,8 +276,40 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       const stopTimeStamp = Math.floor(new Date(end_time).getTime() / 1000);
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
-      const depositAmount = ethers.parseUnits(token_amount_per_time.toString());
-      console.log("token amount per time", depositAmount);
+
+      // ... [rest of your handleTransaction code above]
+
+      const totalDuration = stopTimeStamp - startTimeStamp;
+      const numberOfIntervals = Math.floor(totalDuration / intervalInSeconds);
+
+      // Calculate the ideal token release amount per interval to ensure no remainder
+      let idealTokenAmountPerInterval = Math.floor(
+        Number(token_amount_per_time) / numberOfIntervals
+      );
+
+      // Recalculate the total deposit amount based on the ideal release amount per interval
+      const adjustedTotalDeposit =
+        idealTokenAmountPerInterval * numberOfIntervals;
+
+      if (adjustedTotalDeposit < Number(token_amount_per_time)) {
+        // If the adjusted total deposit is less than the user's intended amount,
+        // increase the release amount per interval by 1 to make sure the full amount is used
+        idealTokenAmountPerInterval += 1;
+      }
+
+      // Recalculate the adjusted total deposit amount after incrementing the release amount
+      const finalTotalDeposit = idealTokenAmountPerInterval * numberOfIntervals;
+
+      console.log(
+        `Release token amount per interval: ${idealTokenAmountPerInterval} (in smallest token units)`
+      );
+      console.log(
+        `Total deposit amount for the duration: ${finalTotalDeposit} (in smallest token units)`
+      );
+
+      // Now proceed with the transaction using the finalTotalDeposit
+      const depositAmount = ethers.parseUnits(finalTotalDeposit.toString()); // Adjust the 'ether' string to match your token's decimals
+
 
       // Approve the smart contract to spend tokens on your behalf with the specified gas price
       const approvalTx = await tokenContract.approve(
@@ -286,7 +318,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       );
 
       console.log("start time", startTimeStamp);
-      console.log("start time", stopTimeStamp);
+      console.log("stop time", stopTimeStamp);
       console.log("interval", intervalInSeconds);
       console.log("deposit", depositAmount);
       console.log("receiver", receiver_wallet_address);
@@ -304,6 +336,10 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         throw new Error("Interval cannot be 0.");
       }
 
+      // Calculate the total duration of the stream in seconds
+
+      // Now proceed with the transaction using the adjustedTotalDeposit
+
       // Wait for the approval transaction to be mined
       await approvalTx.wait();
       console.log("Tokens approved");
@@ -320,9 +356,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
         coinAddress,
         startTimeStamp,
         stopTimeStamp,
-        intervalInSeconds,
-
-        { gasLimit: 700000 }
+        intervalInSeconds
       );
 
       console.log("Transaction sent:", tx.hash);
@@ -686,6 +720,52 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       console.error("Error fetching data from Sarah's API:", error);
     }
   };
+
+  // const sendMessageToSarahBot = async (input: any) => {
+  //   // Mock response data
+  //   // const mockResponse = {
+  //   //   result:
+  //   //     '{\n  "transaction_name": "test",\n  "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n  "remark": "",\n  "token": "BNB",\n  "enable_stream_rate": 1,\n  "amount": "3000",\n  "start_time": "2024/2/23 00:00:00",\n  "end_time": "2024/5/23 00:00:00",\n  "number_of_time": 3,\n  "token_amount_per_time": 1000,\n  "time_interval": "month"\n}',
+  //   // };
+
+  //   const mockResponse = {
+  //     result:
+  //       '{\n    "transaction_name": "test",\n    "receiver_wallet_address": "0xD44B6Fcb1A698c8A56D9Ca5f62AEbB738BB09368",\n    "remark": "",\n    "token": "BNB",\n    "enable_stream_rate": 1,\n    "amount": "2000",\n    "start_time": "2024/02/23 00:00:00",\n    "end_time": "2024/04/23 00:00:00",\n    "number_of_time": 2,\n    "token_amount_per_time": 1000,\n    "time_interval": "month"\n}',
+  //   };
+
+  //   try {
+  //     // Directly use the mock response instead of fetching from the endpoint
+  //     let apiResponse;
+
+  //     try {
+  //       apiResponse = JSON.parse(mockResponse.result);
+  //       // Assuming the response is a transaction detail object
+  //       const newMessage = {
+  //         id: Date.now(),
+  //         text: "",
+  //         sender: "ai",
+  //         type: "transactionSummary",
+  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
+  //         name: activeBot!.name,
+  //         transactionDetails: apiResponse,
+  //       };
+  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+  //     } catch {
+  //       // Handle plain text response
+  //       const newMessage = {
+  //         id: Date.now(),
+  //         text: mockResponse.result,
+  //         sender: "ai",
+  //         type: "ai",
+  //         imgUrl: "https://move-flow.github.io/assets/subscription.png",
+  //       };
+
+  //       setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error handling mock response from Sarah's bot:", error);
+  //   }
+  // };
   return (
     <div className="w-full lg:h-[670px] xl:h-[90vh] 2xl:h-[750px] rounded-[18px] bg-[#24232C] pt-5 pb-10 px-[30px]  flex flex-col">
       {activeBot && (

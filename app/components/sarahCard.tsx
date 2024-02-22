@@ -91,19 +91,19 @@ const SarahCard: React.FC<SarahCardProps> = ({
       <div className="flex justify-between mt-5 ">
         {/* Left column */}
         <div className="flex flex-col gap-y-3">
-          <div className="text-base flex tracking-wider gap-x-2 text-[#A3A3A3] text-[13px]">
+          <div className="text-base flex tracking-wider gap-x-2 text-[#A3A3A3] text-[12px]">
             <p className="text-[13px]">
               Transaction Name:{" "}
               <span className="text-white text-[13px]">{transaction_name}</span>
             </p>
           </div>
-          <div className="text-base tracking-wider text-[#A3A3A3] text-[13px] flex gap-2">
+          <div className="text-base tracking-wider text-[#A3A3A3] text-[12px] flex gap-2">
             <p className="text-[13px]">Token: </p>
             <span className="text-white text-[13px]">{token}</span>
           </div>
           <div className="text-[#A3A3A3]  tracking-wider flex items-center">
             <p className="text-[13px]">Time:</p>
-            <span className="text-white ml-2 flex items-center font-ibm text-[13px]">
+            <span className="text-white ml-2 flex items-center font-ibm text-[12px]">
               {start_time}
               {/* Inline SVG for arrow. Adjust as needed. */}
               <Image
@@ -120,7 +120,7 @@ const SarahCard: React.FC<SarahCardProps> = ({
 
         {/* Right column */}
         <div className="flex flex-col gap-y-3 tracking-wider">
-          <div className="text-[#A3A3A3] text-[13px]">
+          <div className="text-[#A3A3A3] text-[12px]">
             Receiver Wallet Address:
             <span className="text-white ml-1">
               {""}

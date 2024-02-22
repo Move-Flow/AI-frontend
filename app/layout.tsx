@@ -11,12 +11,18 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Loading from "./page";
 import { toast, ToastContainer } from "react-toastify";
+import type { Metadata } from "next";
 
 declare global {
   interface Window {
     ethereum: any;
   }
 }
+
+export const metadata: Metadata = {
+  title: "MoveFlow | AI",
+  description: "",
+};
 
 const inter = Inter({ subsets: ["latin"] });
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -27,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     const navigate = async () => {
       if (typeof window !== "undefined" && window.location.pathname === "/") {
         try {
-          await router.push("/bot1");
+          await router.push("/Generalbot");
         } catch (error) {
           console.error("Failed to navigate:", error);
         }
