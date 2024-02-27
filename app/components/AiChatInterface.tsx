@@ -42,7 +42,6 @@ import Switch from "@mui/material/Switch";
 import CircularProgress from "@mui/material/CircularProgress";
 import SarahCard from "./sarahCard";
 import JimmyCard from "./Jimmycard";
-import { TransactionInfo, mockTransactions } from "../mockTransaction";
 import Link from "next/link";
 
 export interface JimmySubscriptionDetails {
@@ -277,7 +276,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
 
-      // ... [rest of your handleTransaction code above]
 
       const totalDuration = stopTimeStamp - startTimeStamp;
       const numberOfIntervals = Math.floor(totalDuration / intervalInSeconds);
