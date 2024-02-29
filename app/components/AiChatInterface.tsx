@@ -43,6 +43,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import SarahCard from "./sarahCard";
 import JimmyCard from "./Jimmycard";
 import Link from "next/link";
+import { Metadata } from "next/types";
 
 export interface JimmySubscriptionDetails {
   transaction_name: string;
@@ -70,16 +71,6 @@ interface Message {
   name?: string;
   transactionDetails?: TransactionDetails; // Existing transaction details
   JimmySubscriptionDetails?: JimmySubscriptionDetails;
-}
-
-interface NormalMessage {
-  text: string;
-}
-
-interface Option {
-  addr: string;
-  name: string;
-  label: string;
 }
 
 const intervals = [
@@ -136,10 +127,11 @@ export interface TransactionDetails {
   token_amount_per_time: number;
 }
 interface Props {
-  chatbotId?: string; // Make it optional
+  chatbotId?: string;
+  metadata: Metadata; // Make it optional
 }
 
-const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
+const AiChatInterface: React.FC<Props> = ({ chatbotId, metadata }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const messageContainerRef = useRef<HTMLDivElement>(null);
@@ -178,6 +170,12 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       )
     );
   };
+
+  useEffect(() => {
+    if (metadata.title) {
+      document.title = metadata.title as string;
+    }
+  }, [metadata]);
 
   const chatbots = [
     {
@@ -276,7 +274,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
       const intervalInSeconds = convertRateTypeToSeconds(time_interval);
       const currentTimeStamp = Math.floor(new Date().getTime() / 1000);
 
-
       const totalDuration = stopTimeStamp - startTimeStamp;
       const numberOfIntervals = Math.floor(totalDuration / intervalInSeconds);
 
@@ -307,7 +304,6 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId }) => {
 
       // Now proceed with the transaction using the finalTotalDeposit
       const depositAmount = ethers.parseUnits(finalTotalDeposit.toString()); // Adjust the 'ether' string to match your token's decimals
-
 
       // Approve the smart contract to spend tokens on your behalf with the specified gas price
       const approvalTx = await tokenContract.approve(
