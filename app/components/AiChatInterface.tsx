@@ -394,10 +394,20 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId, metadata }) => {
     }
   };
 
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  let signer: any;
+  let address: string;
+  // Assuming you have a function to initialize signer
+  async function initializeSigner() {
+    signer = await provider.getSigner();
+    address = await signer!.getAddress();
+    console.log(address);
+  }
+
+  initializeSigner();
+
   const handleSubscription = async (messageId: number) => {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
       const tokenContract = new ethers.Contract(coinAddress, Approve, signer);
 
       setIsTransactionLoading(true);
@@ -473,7 +483,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId, metadata }) => {
         signer
       );
 
-      const address = await signer.getAddress();
+      const address = await signer!.getAddress();
       const balance = await provider.getBalance(address);
       console.log(balance);
 
@@ -627,7 +637,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId, metadata }) => {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg: input }),
+        body: JSON.stringify({ msg: input, account: address }),
       });
 
       if (!response.ok) {
@@ -670,7 +680,7 @@ const AiChatInterface: React.FC<Props> = ({ chatbotId, metadata }) => {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg: input }),
+        body: JSON.stringify({ msg: input, account: address }),
       });
 
       if (response.ok) {
